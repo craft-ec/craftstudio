@@ -40,16 +40,23 @@ export const useDataCraftStore = create<DataCraftState>((set) => ({
     set({ loading: true, error: null });
     try {
       const items = await daemon.listContent();
-      const content: ContentItem[] = (items || []).map((item: Record<string, unknown>) => ({
-        cid: String(item.content_id || item.cid || ''),
-        name: String(item.name || (item.content_id || item.cid || '').toString().slice(0, 12)),
+      const toHex = (v: unknown): string => {
+        if (typeof v === 'string') return v;
+        if (Array.isArray(v)) return v.map((b: number) => b.toString(16).padStart(2, '0')).join('');
+        return String(v || '');
+      };
+      const content: ContentItem[] = (items || []).map((item: Record<string, unknown>) => {
+        const cid = toHex(item.content_id || item.cid);
+        return {
+        cid,
+        name: String(item.name || cid.slice(0, 16)),
         size: Number(item.total_size || item.size || 0),
         encrypted: Boolean(item.encrypted),
         shards: Number(item.chunk_count || item.chunks || 0),
         healthRatio: 1.0,
         poolBalance: 0,
         publishedAt: new Date().toISOString(),
-      }));
+      };});
       set({ content, loading: false });
     } catch (e) {
       set({ loading: false, error: (e as Error).message });
