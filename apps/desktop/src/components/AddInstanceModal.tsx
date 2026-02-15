@@ -77,14 +77,38 @@ export default function AddInstanceModal({ open, onClose }: Props) {
     }
   };
 
-  const loadExisting = (config: LocalDaemonConfig) => {
+  const loadExisting = async (config: LocalDaemonConfig) => {
     const port = config.ws_port ?? 9091;
-    addInstance(makeInstanceConfig(nextIndex, {
-      name: config.name,
-      url: `ws://127.0.0.1:${port}`,
-      autoStart: false,
-    }), { dataDir: config.data_dir });
-    handleClose();
+    setError(null);
+    try {
+      const result = await invoke<{ pid: number; ws_port: number; data_dir: string }>("start_datacraft_daemon", {
+        config: {
+          data_dir: config.data_dir,
+          socket_path: null,
+          ws_port: port,
+          listen_addr: null,
+          binary_path: null,
+        },
+      });
+      addInstance(makeInstanceConfig(nextIndex, {
+        name: config.name,
+        url: `ws://127.0.0.1:${result.ws_port}`,
+        autoStart: true,
+      }), { dataDir: result.data_dir });
+      handleClose();
+    } catch (e) {
+      const msg = String(e);
+      if (msg.includes("already running")) {
+        addInstance(makeInstanceConfig(nextIndex, {
+          name: config.name,
+          url: `ws://127.0.0.1:${port}`,
+          autoStart: false,
+        }), { dataDir: config.data_dir });
+        handleClose();
+      } else {
+        setError(msg);
+      }
+    }
   };
 
   const connectRemote = () => {

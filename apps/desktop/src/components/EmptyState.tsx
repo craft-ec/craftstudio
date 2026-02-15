@@ -79,11 +79,36 @@ export default function EmptyState() {
 
   const loadExisting = async (config: LocalDaemonConfig) => {
     const port = config.ws_port ?? 9091;
-    addInstance(makeInstanceConfig(nextIndex, {
-      name: config.name,
-      url: `ws://127.0.0.1:${port}`,
-      autoStart: false,
-    }), { dataDir: config.data_dir });
+    setError(null);
+    try {
+      // Start the daemon with this data dir
+      const result = await invoke<{ pid: number; ws_port: number; data_dir: string }>("start_datacraft_daemon", {
+        config: {
+          data_dir: config.data_dir,
+          socket_path: null,
+          ws_port: port,
+          listen_addr: null,
+          binary_path: null,
+        },
+      });
+      addInstance(makeInstanceConfig(nextIndex, {
+        name: config.name,
+        url: `ws://127.0.0.1:${result.ws_port}`,
+        autoStart: true,
+      }), { dataDir: result.data_dir });
+    } catch (e) {
+      const msg = String(e);
+      // If daemon is already running on that port, just connect
+      if (msg.includes("already running")) {
+        addInstance(makeInstanceConfig(nextIndex, {
+          name: config.name,
+          url: `ws://127.0.0.1:${port}`,
+          autoStart: false,
+        }), { dataDir: config.data_dir });
+      } else {
+        setError(msg);
+      }
+    }
   };
 
   return (
