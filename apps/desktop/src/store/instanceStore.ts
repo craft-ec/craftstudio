@@ -9,8 +9,9 @@ interface InstanceState {
   activeId: string | null;
   connectionStatus: Record<string, "connected" | "disconnected" | "connecting">;
   dataDirs: Record<string, string>;
+  apiKeys: Record<string, string>;
 
-  addInstance: (instance: InstanceConfig, dataDir?: string) => void;
+  addInstance: (instance: InstanceConfig, opts?: { dataDir?: string; apiKey?: string }) => void;
   removeInstance: (id: string) => void;
   setActive: (id: string | null) => void;
   updateInstance: (id: string, patch: Partial<InstanceConfig>) => void;
@@ -32,12 +33,15 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
   activeId: null,
   connectionStatus: {},
   dataDirs: {},
+  apiKeys: {},
 
-  addInstance: (instance, dataDir?) => {
+  addInstance: (instance, opts?) => {
+    const { dataDir, apiKey } = opts ?? {};
     set((s) => ({
       instances: [...s.instances, instance],
       activeId: instance.id,
       ...(dataDir ? { dataDirs: { ...s.dataDirs, [instance.id]: dataDir } } : {}),
+      ...(apiKey ? { apiKeys: { ...s.apiKeys, [instance.id]: apiKey } } : {}),
     }));
     // Create and init client
     get().initClient(instance.id);
@@ -86,6 +90,7 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
     if (!instance) return;
 
     const dataDir = get().dataDirs[id];
+    const apiKey = get().apiKeys[id];
 
     set((s) => ({
       connectionStatus: { ...s.connectionStatus, [id]: "connecting" },
@@ -100,7 +105,7 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
         },
       }));
     });
-    client.start(dataDir);
+    client.start(dataDir, apiKey);
   },
 
   getActiveClient: () => {

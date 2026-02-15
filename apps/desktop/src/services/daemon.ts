@@ -147,10 +147,19 @@ class DaemonClient {
     }
   }
 
+  /** Set API key directly (for remote connections where key is provided by user). */
+  setApiKey(key: string | null) {
+    this._apiKey = key;
+  }
+
   /** Start connecting (public entry point for multi-instance use). */
-  async start(dataDir?: string) {
+  async start(dataDir?: string, apiKey?: string) {
     this.destroyed = false;
-    await this.loadApiKey(dataDir);
+    if (apiKey) {
+      this._apiKey = apiKey;
+    } else {
+      await this.loadApiKey(dataDir);
+    }
     this.connect();
   }
 

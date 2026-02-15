@@ -27,6 +27,7 @@ export default function AddInstanceModal({ open, onClose }: Props) {
   const [mode, setMode] = useState<"choose" | "remote">("choose");
   const [remoteUrl, setRemoteUrl] = useState("ws://127.0.0.1:9091");
   const [remoteName, setRemoteName] = useState("");
+  const [remoteApiKey, setRemoteApiKey] = useState("");
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,7 +50,7 @@ export default function AddInstanceModal({ open, onClose }: Props) {
         name: `Local Node (:${result.ws_port})`,
         url: `ws://127.0.0.1:${result.ws_port}`,
         autoStart: true,
-      }), result.data_dir);
+      }), { dataDir: result.data_dir });
       handleClose();
     } catch (e) {
       const msg = String(e);
@@ -69,7 +70,7 @@ export default function AddInstanceModal({ open, onClose }: Props) {
       name: remoteName.trim() || remoteUrl.replace(/^wss?:\/\//, ""),
       url: remoteUrl.trim(),
       autoStart: false,
-    }));
+    }), remoteApiKey.trim() ? { apiKey: remoteApiKey.trim() } : undefined);
     handleClose();
   };
 
@@ -77,6 +78,7 @@ export default function AddInstanceModal({ open, onClose }: Props) {
     setMode("choose");
     setRemoteUrl("ws://127.0.0.1:9091");
     setRemoteName("");
+    setRemoteApiKey("");
     setError(null);
     onClose();
   };
@@ -131,6 +133,16 @@ export default function AddInstanceModal({ open, onClose }: Props) {
               onChange={(e) => setRemoteUrl(e.target.value)}
               placeholder="ws://127.0.0.1:9091"
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-craftec-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">API Key (optional for local daemons)</label>
+            <input
+              value={remoteApiKey}
+              onChange={(e) => setRemoteApiKey(e.target.value)}
+              placeholder="Found in daemon's data_dir/api_key"
+              type="password"
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-craftec-500"
             />
           </div>
           <div className="flex gap-2">

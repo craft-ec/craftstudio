@@ -27,9 +27,13 @@ function App() {
   const instances = useInstanceStore((s) => s.instances);
   const activeId = useInstanceStore((s) => s.activeId);
 
+  const loadFromConfig = useInstanceStore((s) => s.loadFromConfig);
+
   useEffect(() => {
     (async () => {
       await loadConfig();
+      // Restore saved instances from config
+      loadFromConfig();
       try {
         const identity = await invoke<{ did: string }>("get_identity");
         useIdentityStore.getState().setDid(identity.did);
@@ -38,7 +42,7 @@ function App() {
         console.warn("[identity] Failed to load:", e);
       }
     })();
-  }, [loadConfig]);
+  }, [loadConfig, loadFromConfig]);
 
   if (!configLoaded) {
     return (
