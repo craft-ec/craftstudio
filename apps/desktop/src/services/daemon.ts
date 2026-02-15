@@ -3,9 +3,12 @@
  *
  * Auto-reconnects, tracks request IDs, supports timeouts.
  * All pages go through this — never instantiate WebSocket directly.
+ *
+ * URL is read from config store; call `daemon.setUrl()` to change it.
  */
 
-const DAEMON_WS_URL = "ws://127.0.0.1:9091/ws";
+import { getConfig } from "./config";
+
 const RECONNECT_MS = 3_000;
 const REQUEST_TIMEOUT_MS = 30_000;
 
@@ -27,12 +30,39 @@ class DaemonClient {
   private connectionListeners = new Set<ConnectionListener>();
   private eventListeners = new Set<EventListener>();
   private destroyed = false;
+  private _url: string;
 
   get connected(): boolean {
     return this._connected;
   }
 
-  constructor() {
+  get url(): string {
+    return this._url;
+  }
+
+  constructor(url?: string) {
+    // Read from cached config if available, otherwise use default
+    const cfg = getConfig();
+    this._url = url ?? `${cfg.daemons.datacraft.url}/ws`;
+  }
+
+  /** Initialize connection. Called after config is loaded. */
+  init() {
+    const cfg = getConfig();
+    this._url = `${cfg.daemons.datacraft.url}/ws`;
+    this.connect();
+  }
+
+  /** Update the daemon URL and reconnect. */
+  setUrl(baseUrl: string) {
+    const wsUrl = `${baseUrl}/ws`;
+    if (wsUrl === this._url && this._connected) return;
+    this._url = wsUrl;
+    this.ws?.close();
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     this.connect();
   }
 
@@ -41,12 +71,12 @@ class DaemonClient {
   private connect() {
     if (this.destroyed) return;
     try {
-      const ws = new WebSocket(DAEMON_WS_URL);
+      const ws = new WebSocket(this._url);
 
       ws.onopen = () => {
         this._connected = true;
         this.notifyConnection(true);
-        console.log("[daemon] connected");
+        console.log("[daemon] connected to", this._url);
       };
 
       ws.onclose = () => {
@@ -289,6 +319,6 @@ class DaemonClient {
   }
 }
 
-/** Singleton daemon client */
+/** Singleton daemon client — call daemon.init() after config is loaded */
 export const daemon = new DaemonClient();
 export type { DaemonClient };

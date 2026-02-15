@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
-import { Database, Upload, Lock, Unlock, ShieldCheck, UserPlus, UserMinus, HardDrive } from "lucide-react";
+import { Database, Upload, Lock, Unlock, ShieldCheck, UserPlus, UserMinus, HardDrive, FolderOpen } from "lucide-react";
 import { useDataCraftStore } from "../../store/dataCraftStore";
 import { useDaemonStore } from "../../store/daemonStore";
 import StatCard from "../../components/StatCard";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
 import DaemonOffline from "../../components/DaemonOffline";
+import { invoke } from "@tauri-apps/api/core";
 
 function formatBytes(bytes: number): string {
   if (bytes >= 1_000_000_000) return `${(bytes / 1_000_000_000).toFixed(1)} GB`;
@@ -166,14 +167,31 @@ export default function DataDashboard() {
         <div className="space-y-4">
           <div>
             <label className="block text-sm text-gray-400 mb-1">File Path</label>
-            <input
-              type="text"
-              value={filePath}
-              onChange={(e) => setFilePath(e.target.value)}
-              placeholder="/path/to/file.csv"
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-craftec-500"
-            />
-            <p className="text-xs text-gray-500 mt-1">Absolute path to the file to publish via daemon</p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={filePath}
+                onChange={(e) => setFilePath(e.target.value)}
+                placeholder="/path/to/file.csv"
+                className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-craftec-500"
+              />
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const selected = await invoke<string | null>("pick_file");
+                    if (selected) setFilePath(selected);
+                  } catch {
+                    // fallback: user can type path manually
+                  }
+                }}
+                className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors"
+                title="Browse files"
+              >
+                <FolderOpen size={16} />
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">Select or type the path to publish via daemon</p>
           </div>
           <div className="flex items-center gap-3">
             <button

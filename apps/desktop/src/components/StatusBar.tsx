@@ -1,15 +1,19 @@
 import { useTunnelStore } from "../store/tunnelStore";
 import { useDaemonStore } from "../store/daemonStore";
+import { useConfigStore } from "../store/configStore";
 
 export default function StatusBar() {
   const { status, speedUp, speedDown } = useTunnelStore();
   const { connected: daemonConnected } = useDaemonStore();
+  const cluster = useConfigStore((s) => s.config.solana.cluster);
 
   const tunnelColor = status === "connected" ? "text-green-400" : status === "connecting" ? "text-yellow-400" : "text-gray-500";
   const daemonColor = daemonConnected ? "text-green-400" : "text-red-400";
+  const clusterLabel = cluster === "mainnet-beta" ? "Mainnet" : cluster === "devnet" ? "Devnet" : "Custom";
 
   return (
     <div className="h-8 bg-gray-900 border-t border-gray-800 flex items-center px-4 text-xs gap-6">
+      <span className="text-gray-400 font-medium">{clusterLabel}</span>
       <span className={daemonColor}>
         ● Daemon {daemonConnected ? "Online" : "Offline"}
       </span>

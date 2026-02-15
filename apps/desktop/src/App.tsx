@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Sidebar from "./components/Sidebar";
 import StatusBar from "./components/StatusBar";
 import TunnelDashboard from "./modules/tunnel/TunnelDashboard";
@@ -7,11 +7,35 @@ import WalletPage from "./modules/wallet/WalletPage";
 import IdentityPage from "./modules/identity/IdentityPage";
 import NodePage from "./modules/node/NodePage";
 import SettingsPage from "./modules/settings/SettingsPage";
+import { useConfigStore } from "./store/configStore";
+import { useIdentityStore } from "./store/identityStore";
+import { useWalletStore } from "./store/walletStore";
+import { daemon } from "./services/daemon";
+import { invoke } from "@tauri-apps/api/core";
 
 export type Page = "tunnel" | "data" | "identity" | "node" | "wallet" | "settings";
 
 function App() {
   const [page, setPage] = useState<Page>("tunnel");
+  const loadConfig = useConfigStore((s) => s.load);
+  const configLoaded = useConfigStore((s) => s.loaded);
+
+  // Bootstrap: load config → init daemon → load identity
+  useEffect(() => {
+    (async () => {
+      await loadConfig();
+      daemon.init();
+
+      // Load identity from Tauri backend
+      try {
+        const identity = await invoke<{ did: string }>("get_identity");
+        useIdentityStore.getState().setDid(identity.did);
+        useWalletStore.getState().setAddress(identity.did);
+      } catch (e) {
+        console.warn("[identity] Failed to load:", e);
+      }
+    })();
+  }, [loadConfig]);
 
   const renderPage = () => {
     switch (page) {
@@ -23,6 +47,14 @@ function App() {
       case "settings": return <SettingsPage />;
     }
   };
+
+  if (!configLoaded) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-950 text-gray-400">
+        Loading...
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-gray-950 text-gray-100">
