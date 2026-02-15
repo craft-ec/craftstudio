@@ -76,6 +76,7 @@ export default function AddInstanceModal({ open, onClose }: Props) {
           ws_port: port,
           listen_addr: null,
           binary_path: null,
+          capabilities: ["client"],
         },
       });
       addInstance(makeInstanceConfig({

@@ -46,6 +46,7 @@ export default function EmptyState() {
           ws_port: null,
           listen_addr: null,
           binary_path: null,
+          capabilities: ["client"],
         },
       });
       const inst = makeInstanceConfig({
@@ -81,6 +82,7 @@ export default function EmptyState() {
           ws_port: port,
           listen_addr: null,
           binary_path: null,
+          capabilities: ["client"],
         },
       });
       addInstance(makeInstanceConfig({

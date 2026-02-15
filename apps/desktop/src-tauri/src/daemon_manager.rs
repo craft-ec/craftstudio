@@ -13,6 +13,7 @@ pub struct DaemonConfig {
     pub ws_port: Option<u16>,
     pub listen_addr: Option<String>,
     pub binary_path: Option<String>,
+    pub capabilities: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -132,6 +133,12 @@ impl DaemonManager {
             }
         }
 
+        // Build capabilities env var — default to "client" only if not specified
+        let caps_env = config.capabilities
+            .as_ref()
+            .map(|caps| caps.join(","))
+            .unwrap_or_else(|| "client".to_string());
+
         let mut child = Command::new(&binary)
             .arg("--data-dir")
             .arg(&data_dir)
@@ -141,6 +148,7 @@ impl DaemonManager {
             .arg(ws_port.to_string())
             .arg("--listen")
             .arg(&listen_addr)
+            .env("CRAFTEC_CAPABILITIES", &caps_env)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
