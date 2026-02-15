@@ -1,4 +1,3 @@
-use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 
@@ -9,66 +8,6 @@ fn config_dir() -> PathBuf {
 
 fn config_path() -> PathBuf {
     config_dir().join("config.json")
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DefaultConfig {
-    pub solana: SolanaConfig,
-    pub identity: IdentityConfig,
-    pub daemons: DaemonsConfig,
-    pub node: NodeConfig,
-    pub ui: UiConfig,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SolanaConfig {
-    pub cluster: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub custom_rpc_url: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub usdc_mint_override: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IdentityConfig {
-    pub keypair_path: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DaemonsConfig {
-    pub datacraft: DaemonEntry,
-    pub tunnelcraft: DaemonEntry,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DaemonEntry {
-    pub url: String,
-    pub auto_connect: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NodeConfig {
-    pub capabilities: Capabilities,
-    pub storage_path: String,
-    pub max_storage_gb: u32,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub bandwidth_limit_mbps: Option<u32>,
-    pub port: u16,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Capabilities {
-    pub storage: bool,
-    pub relay: bool,
-    pub aggregator: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UiConfig {
-    pub theme: String,
-    pub notifications: bool,
-    pub start_minimized: bool,
-    pub launch_on_startup: bool,
 }
 
 fn default_config_json() -> String {

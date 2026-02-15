@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { LucideIcon } from 'lucide-react';
 import {
   Settings,
   Globe,
@@ -111,7 +112,7 @@ function Section({
   title,
   children,
 }: {
-  icon: React.ComponentType<{ className?: string; size?: number }>;
+  icon: LucideIcon;
   title: string;
   children: React.ReactNode;
 }) {
