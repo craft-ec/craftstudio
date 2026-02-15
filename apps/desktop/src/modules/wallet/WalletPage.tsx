@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { Wallet, Copy, DollarSign, ArrowUpRight, ArrowDownLeft, CreditCard, CheckCircle, Clock, XCircle, Inbox } from "lucide-react";
 import { useWalletStore } from "../../store/walletStore";
-import { useDaemonStore } from "../../store/daemonStore";
-import { daemon } from "../../services/daemon";
+import { useActiveConnection } from "../../hooks/useDaemon";
+import { useDaemon } from "../../hooks/useDaemon";
 import type { Transaction } from "../../store/walletStore";
 import StatCard from "../../components/StatCard";
 import Modal from "../../components/Modal";
@@ -50,8 +50,9 @@ const statusColor: Record<Transaction["status"], string> = {
 };
 
 export default function WalletPage() {
+  const daemon = useDaemon();
   const { address, solBalance, usdcBalance, transactions, fundPool, error } = useWalletStore();
-  const { connected } = useDaemonStore();
+  const { connected } = useActiveConnection();
   const [showFund, setShowFund] = useState(false);
   const [fundAmount, setFundAmount] = useState("");
   const [copied, setCopied] = useState(false);
@@ -61,8 +62,8 @@ export default function WalletPage() {
   const loadChannels = useCallback(async () => {
     if (!connected) return;
     try {
-      const result = await daemon.listChannels();
-      setChannels(result.channels || []);
+      const result = await daemon?.listChannels();
+      setChannels(result?.channels || []);
     } catch { /* */ }
   }, [connected]);
 

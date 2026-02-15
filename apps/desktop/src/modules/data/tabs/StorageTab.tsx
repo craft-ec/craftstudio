@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { HardDrive, ShieldCheck, DollarSign, Activity, Inbox } from "lucide-react";
-import { daemon } from "../../../services/daemon";
-import { useDaemonStore } from "../../../store/daemonStore";
+import { useDaemon } from "../../../hooks/useDaemon";
+import { useActiveConnection } from "../../../hooks/useDaemon";
 import StatCard from "../../../components/StatCard";
 import TimeChart from "../../../components/TimeChart";
 
@@ -22,7 +22,8 @@ interface StorageReceipt {
 }
 
 export default function StorageTab() {
-  const { connected } = useDaemonStore();
+  const daemon = useDaemon();
+  const { connected } = useActiveConnection();
   const [storedBytes, setStoredBytes] = useState(0);
   const [shardCount, setShardCount] = useState(0);
   const [receipts, setReceipts] = useState<StorageReceipt[]>([]);
@@ -32,15 +33,14 @@ export default function StorageTab() {
     if (!connected) return;
     try {
       const [status, receiptData] = await Promise.allSettled([
-        daemon.status(),
-        daemon.listStorageReceipts({ limit: 100 }),
+        daemon?.status(),
+        daemon?.listStorageReceipts({ limit: 100 }),
       ]);
-      if (status.status === "fulfilled") {
+      if (status.status === "fulfilled" && status.value) {
         setStoredBytes(status.value.stored_bytes || 0);
         setShardCount(status.value.shard_count || 0);
-        console.log('daemon status:', status.value);
       }
-      if (receiptData.status === "fulfilled") {
+      if (receiptData.status === "fulfilled" && receiptData.value) {
         setReceipts(receiptData.value.receipts || []);
         setTotalReceipts(receiptData.value.total || 0);
       }

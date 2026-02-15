@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Layers, Receipt, Send, ShieldCheck, Clock, CheckCircle, AlertCircle, Inbox } from "lucide-react";
-import { daemon } from "../../../services/daemon";
-import { useDaemonStore } from "../../../store/daemonStore";
+import { useDaemon } from "../../../hooks/useDaemon";
+import { useActiveConnection } from "../../../hooks/useDaemon";
 import StatCard from "../../../components/StatCard";
 import DataTable from "../../../components/DataTable";
 
@@ -39,7 +39,8 @@ function ProofStatusBadge({ status }: { status: string }) {
 }
 
 export default function AggregatorTab() {
-  const { connected } = useDaemonStore();
+  const daemon = useDaemon();
+  const { connected } = useActiveConnection();
   const [aggStatus, setAggStatus] = useState<AggregatorStatus | null>(null);
   const [distributions, setDistributions] = useState<Distribution[]>([]);
   const [aggAvailable, setAggAvailable] = useState(false);
@@ -49,7 +50,7 @@ export default function AggregatorTab() {
     try {
       // Try to call aggregator-specific RPC — if the daemon doesn't support it,
       // we show "Aggregator not running" state
-      const result = await daemon.call<{
+      const result = await daemon?.call<{
         epochs_processed: number;
         current_epoch: number;
         receipts_this_epoch: number;
@@ -64,6 +65,7 @@ export default function AggregatorTab() {
         }>;
       }>("aggregator.status");
 
+      if (!result) return;
       setAggAvailable(true);
       setAggStatus({
         epochsProcessed: result.epochs_processed,

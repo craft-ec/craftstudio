@@ -1,5 +1,11 @@
 import { create } from "zustand";
-import { daemon } from "../services/daemon";
+import { useInstanceStore } from "./instanceStore";
+
+function getDaemon() {
+  const client = useInstanceStore.getState().getActiveClient();
+  if (!client) throw new Error("No active daemon connection");
+  return client;
+}
 
 export interface ContentItem {
   cid: string;
@@ -39,7 +45,7 @@ export const useDataCraftStore = create<DataCraftState>((set) => ({
   loadContent: async () => {
     set({ loading: true, error: null });
     try {
-      const items = await daemon.listContent();
+      const items = await getDaemon().listContent();
       const toHex = (v: unknown): string => {
         if (typeof v === 'string') return v;
         if (Array.isArray(v)) return v.map((b: number) => b.toString(16).padStart(2, '0')).join('');
@@ -48,15 +54,16 @@ export const useDataCraftStore = create<DataCraftState>((set) => ({
       const content: ContentItem[] = (items || []).map((item: Record<string, unknown>) => {
         const cid = toHex(item.content_id || item.cid);
         return {
-        cid,
-        name: String(item.name || cid.slice(0, 16)),
-        size: Number(item.total_size || item.size || 0),
-        encrypted: Boolean(item.encrypted),
-        shards: Number(item.chunk_count || item.chunks || 0),
-        healthRatio: 1.0,
-        poolBalance: 0,
-        publishedAt: new Date().toISOString(),
-      };});
+          cid,
+          name: String(item.name || cid.slice(0, 16)),
+          size: Number(item.total_size || item.size || 0),
+          encrypted: Boolean(item.encrypted),
+          shards: Number(item.chunk_count || item.chunks || 0),
+          healthRatio: 1.0,
+          poolBalance: 0,
+          publishedAt: new Date().toISOString(),
+        };
+      });
       set({ content, loading: false });
     } catch (e) {
       set({ loading: false, error: (e as Error).message });
@@ -66,8 +73,7 @@ export const useDataCraftStore = create<DataCraftState>((set) => ({
   publishContent: async (path, encrypted) => {
     set({ error: null });
     try {
-      const result = await daemon.publish(path, encrypted);
-      // Add to local list immediately
+      const result = await getDaemon().publish(path, encrypted);
       set((state) => ({
         content: [
           {
@@ -92,10 +98,7 @@ export const useDataCraftStore = create<DataCraftState>((set) => ({
   grantAccess: async (cid, did) => {
     set({ error: null });
     try {
-      // For now we pass empty strings for secrets - the UI will need to
-      // provide these from the identity store in a future iteration
-      await daemon.grantAccess(cid, "", did, "");
-      // Optimistic update
+      await getDaemon().grantAccess(cid, "", did, "");
       set((state) => ({
         accessLists: {
           ...state.accessLists,
@@ -114,7 +117,7 @@ export const useDataCraftStore = create<DataCraftState>((set) => ({
   revokeAccess: async (cid, did) => {
     set({ error: null });
     try {
-      await daemon.revokeAccess(cid, did);
+      await getDaemon().revokeAccess(cid, did);
       set((state) => ({
         accessLists: {
           ...state.accessLists,
@@ -129,10 +132,10 @@ export const useDataCraftStore = create<DataCraftState>((set) => ({
 
   loadAccessList: async (cid) => {
     try {
-      const result = await daemon.listAccess(cid);
+      const result = await getDaemon().listAccess(cid);
       const entries: AccessEntry[] = (result.authorized || []).map((did) => ({
         did,
-        grantedAt: "", // daemon doesn't track grant time
+        grantedAt: "",
       }));
       set((state) => ({
         accessLists: { ...state.accessLists, [cid]: entries },

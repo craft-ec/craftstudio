@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { daemon } from "../services/daemon";
+import { useInstanceStore } from "./instanceStore";
 
 export interface Transaction {
   signature: string;
@@ -54,7 +54,9 @@ export const useWalletStore = create<WalletState>((set) => ({
     }));
 
     try {
-      const result = await daemon.fundPool(state.address, amount);
+      const client = useInstanceStore.getState().getActiveClient();
+      if (!client) throw new Error("No active daemon");
+      const result = await client.fundPool(state.address, amount);
       // Replace pending tx with confirmed
       set((s) => ({
         usdcBalance: s.usdcBalance - amount,

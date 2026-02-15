@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { Upload, Lock, Unlock, UserPlus, UserMinus, Download, DollarSign, FolderOpen } from "lucide-react";
 import { useDataCraftStore } from "../../../store/dataCraftStore";
-import { useDaemonStore } from "../../../store/daemonStore";
-import { daemon } from "../../../services/daemon";
+import { useActiveConnection } from "../../../hooks/useDaemon";
+import { useDaemon } from "../../../hooks/useDaemon";
 import StatCard from "../../../components/StatCard";
 import DataTable from "../../../components/DataTable";
 import Modal from "../../../components/Modal";
@@ -11,10 +11,11 @@ import NetworkHealth from "../../../components/NetworkHealth";
 import { usePeers } from "../../../hooks/usePeers";
 
 function ProviderCount({ cid }: { cid: string }) {
+  const daemon = useDaemon();
   const [count, setCount] = useState<number | null>(null);
   useEffect(() => {
     if (!cid) return;
-    daemon.call<{ provider_count: number }>('data.providers', { cid }).then(r => setCount(r.provider_count)).catch(() => setCount(null));
+    daemon?.call<{ provider_count: number }>('data.providers', { cid }).then(r => setCount(r?.provider_count ?? null)).catch(() => setCount(null));
   }, [cid]);
   if (count === null) return <span className="text-xs text-gray-500">—</span>;
   if (count <= 1) return <span className="text-xs text-yellow-400">Local only</span>;
@@ -43,8 +44,9 @@ interface ChannelInfo {
 }
 
 export default function ClientTab() {
+  const daemon = useDaemon();
   const { content, accessLists, loading, error, loadContent, publishContent, grantAccess, revokeAccess, loadAccessList } = useDataCraftStore();
-  const { connected } = useDaemonStore();
+  const { connected } = useActiveConnection();
   const [showPublish, setShowPublish] = useState(false);
   const [showAccess, setShowAccess] = useState<string | null>(null);
   const [filePath, setFilePath] = useState("");
@@ -62,8 +64,8 @@ export default function ClientTab() {
   const loadChannels = useCallback(async () => {
     if (!connected) return;
     try {
-      const result = await daemon.listChannels();
-      setChannels(result.channels || []);
+      const result = await daemon?.listChannels();
+      setChannels(result?.channels || []);
     } catch { /* */ }
   }, [connected]);
 
