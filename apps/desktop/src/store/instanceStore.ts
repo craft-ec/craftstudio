@@ -343,9 +343,22 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
           }
           break;
         }
-        case "capability_published":
-          msg = `Published own capabilities: ${(p.capabilities as string[])?.join(", ") ?? ""}`;
+        case "capability_published": {
+          const caps = p.capabilities as string[] ?? [];
+          const committed = Number(p.storage_committed ?? 0);
+          const used = Number(p.storage_used ?? 0);
+          const isStorage = caps.includes("Storage");
+          if (isStorage && committed > 0) {
+            const avail = committed - used;
+            msg = `Broadcasting: storage node with ${formatBytes(avail)} available of ${formatBytes(committed)} (${Math.round(used / committed * 100)}% used)`;
+          } else if (isStorage) {
+            msg = `Broadcasting: storage node (no storage limit set — configure max_storage_bytes)`;
+            level = "warn";
+          } else {
+            msg = `Broadcasting: ${caps.join(", ").toLowerCase()} node`;
+          }
           break;
+        }
 
         // Content operations
         case "content_published":
