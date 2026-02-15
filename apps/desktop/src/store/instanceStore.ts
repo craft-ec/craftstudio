@@ -244,25 +244,55 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
     });
 
     // Subscribe to daemon server-push events and categorize them
+    // Event method names are snake_case DaemonEvent variants:
+    //   peer_connected, peer_disconnected, listening_on, daemon_started,
+    //   capability_announced, capability_published, provider_announced, content_reannounced,
+    //   storage_receipt_received, removal_notice_received,
+    //   content_published, access_granted, access_revoked, channel_opened, channel_closed,
+    //   pool_funded, removal_published, content_distributed,
+    //   providers_resolved, manifest_retrieved, dht_error,
+    //   challenger_round_completed, shard_requested
     client.onEvent((method, params) => {
       const p = (params ?? {}) as Record<string, unknown>;
-      const msg = typeof p.message === "string" ? p.message : `${method}`;
 
       let category: ActivityCategory = "system";
       let level: ActivityEvent["level"] = "info";
+      let msg = method.replace(/_/g, " ");
 
-      if (method.startsWith("dht.") || method.startsWith("announce.") || method === "capability.announced" || method === "capability.expired") {
+      // Announcements
+      if (["capability_announced", "capability_published", "provider_announced", "content_reannounced", "providers_resolved", "manifest_retrieved"].includes(method)) {
         category = "announcement";
-      } else if (method.startsWith("gossip.") || method.startsWith("pdp.") || method.startsWith("receipt.") || method === "peer.joined" || method === "peer.left") {
+      }
+      // Gossip
+      else if (["storage_receipt_received", "removal_notice_received", "challenger_round_completed", "shard_requested", "peer_connected", "peer_disconnected", "peer_discovered"].includes(method)) {
         category = "gossip";
-      } else if (method.startsWith("publish.") || method.startsWith("access.") || method.startsWith("channel.") || method.startsWith("settlement.") || method === "fetch.complete") {
+      }
+      // Actions
+      else if (["content_published", "content_distributed", "access_granted", "access_revoked", "channel_opened", "channel_closed", "pool_funded", "removal_published"].includes(method)) {
         category = "action";
-        if (method.includes("complete") || method.includes("granted") || method.includes("opened")) level = "success";
-        if (method.includes("failed") || method.includes("error")) level = "error";
       }
 
-      if (method.includes("error") || method.includes("failed")) level = "error";
-      if (method.includes("warn")) level = "warn";
+      // Levels
+      if (["content_published", "access_granted", "channel_opened", "pool_funded", "peer_connected", "content_distributed", "provider_announced"].includes(method)) {
+        level = "success";
+      }
+      if (["dht_error"].includes(method) || method.includes("error")) level = "error";
+      if (["peer_disconnected", "removal_notice_received"].includes(method)) level = "warn";
+
+      // Build descriptive messages
+      if (method === "peer_connected") msg = `Peer connected: ${p.peer_id ?? ""}`;
+      else if (method === "peer_disconnected") msg = `Peer disconnected: ${p.peer_id ?? ""}`;
+      else if (method === "capability_announced") msg = `Peer ${(p.peer_id as string)?.slice(0, 12) ?? ""}… capabilities: ${(p.capabilities as string[])?.join(", ") ?? ""}`;
+      else if (method === "content_published") msg = `Published content (${p.chunks ?? 0} chunks, ${formatBytes(Number(p.size ?? 0))})`;
+      else if (method === "content_distributed") msg = `Distributed ${p.shards_pushed ?? 0} shards for ${(p.content_id as string)?.slice(0, 12) ?? ""}…`;
+      else if (method === "provider_announced") msg = `Announced as provider for ${(p.content_id as string)?.slice(0, 12) ?? ""}…`;
+      else if (method === "providers_resolved") msg = `Found ${p.count ?? 0} providers for ${(p.content_id as string)?.slice(0, 12) ?? ""}…`;
+      else if (method === "dht_error") msg = `DHT error: ${p.error ?? "unknown"}`;
+      else if (method === "listening_on") msg = `Listening on ${p.address ?? ""}`;
+      else if (method === "daemon_started") msg = "Daemon started";
+      else if (method === "access_granted") msg = `Access granted to ${(p.recipient as string)?.slice(0, 12) ?? ""}…`;
+      else if (method === "channel_opened") msg = `Payment channel opened: ${(p.channel_id as string)?.slice(0, 12) ?? ""}…`;
+      else if (method === "storage_receipt_received") msg = `Storage receipt: ${(p.content_id as string)?.slice(0, 12) ?? ""}… from ${(p.storage_node as string)?.slice(0, 12) ?? ""}…`;
 
       logActivity(id, msg, level, category);
     });
