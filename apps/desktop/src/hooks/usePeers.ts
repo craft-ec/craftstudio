@@ -3,7 +3,10 @@ import { useDaemon, useActiveConnection } from "./useDaemon";
 
 export interface PeerInfo {
   capabilities: string[];
-  last_seen: number;
+  score: number;
+  avg_latency_ms: number;
+  storage_committed_bytes: number;
+  storage_used_bytes: number;
 }
 
 export interface PeerStats {

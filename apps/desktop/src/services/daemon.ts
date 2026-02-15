@@ -361,7 +361,12 @@ class DaemonClient {
 
   // Peers
   listPeers() {
-    return this.call<Record<string, { capabilities: string[]; last_seen: number }>>("peers");
+    return this.call<Record<string, { capabilities: string[]; score: number; avg_latency_ms: number; storage_committed_bytes: number; storage_used_bytes: number }>>("peers");
+  }
+
+  // Network storage summary
+  networkStorage() {
+    return this.call<{ total_committed: number; total_used: number; total_available: number; storage_node_count: number }>("network.storage");
   }
 }
 

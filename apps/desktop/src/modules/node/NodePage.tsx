@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Globe, Activity, Users, Clock, Zap, DollarSign } from "lucide-react";
+import { Globe, Activity, Users, Clock, Zap, DollarSign, HardDrive } from "lucide-react";
 import { useDaemon, useActiveConnection } from "../../hooks/useDaemon";
 import { useActiveInstance } from "../../hooks/useActiveInstance";
 import { useInstanceStore } from "../../store/instanceStore";
@@ -7,6 +7,13 @@ import StatCard from "../../components/StatCard";
 import DaemonOffline from "../../components/DaemonOffline";
 import NetworkHealth from "../../components/NetworkHealth";
 import { usePeers } from "../../hooks/usePeers";
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return `${(bytes / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0)} ${units[i]}`;
+}
 
 interface Capability {
   key: string;
@@ -32,20 +39,23 @@ export default function NetworkPage() {
     { key: "aggregator", label: "Aggregator", enabled: caps.includes('aggregator') },
   ];
   const peerStats = usePeers();
-  const [peers, setPeers] = useState<Record<string, { capabilities: string[]; last_seen: number }>>({});
+  const [peers, setPeers] = useState<Record<string, { capabilities: string[] }>>({});
   const [channels, setChannels] = useState<ChannelSummary>({ count: 0, totalLocked: 0, totalSpent: 0 });
+  const [networkStorage, setNetworkStorage] = useState({ total_committed: 0, total_used: 0, total_available: 0, storage_node_count: 0 });
   const [uptime, setUptime] = useState("—");
 
   const loadNodeData = useCallback(async () => {
     if (!connected || !client) return;
     try {
-      const [peersData, channelData, statusData] = await Promise.allSettled([
+      const [peersData, channelData, statusData, storageData] = await Promise.allSettled([
         client.listPeers(),
         client.listChannels(),
         client.status(),
+        client.networkStorage(),
       ]);
 
       if (peersData.status === "fulfilled") setPeers(peersData.value || {});
+      if (storageData.status === "fulfilled") setNetworkStorage(storageData.value);
       if (channelData.status === "fulfilled") {
         const chs = channelData.value.channels || [];
         setChannels({
@@ -111,6 +121,27 @@ export default function NetworkPage() {
           <StatCard icon={Users} label="Storage" value={String(peerStats.storage)} color="text-craftec-500" />
           <StatCard icon={Users} label="Aggregator" value={String(peerStats.aggregator)} />
         </div>
+      </div>
+
+      {/* Network Storage */}
+      <div className="bg-gray-900 rounded-xl p-4 mb-6">
+        <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+          <HardDrive className="w-5 h-5 text-craftec-500" /> Network Storage
+        </h2>
+        <div className="grid grid-cols-4 gap-4 mb-4">
+          <StatCard icon={HardDrive} label="Committed" value={formatBytes(networkStorage.total_committed)} color="text-craftec-500" />
+          <StatCard icon={HardDrive} label="Used" value={formatBytes(networkStorage.total_used)} color="text-yellow-400" />
+          <StatCard icon={HardDrive} label="Available" value={formatBytes(networkStorage.total_available)} color="text-green-400" />
+          <StatCard icon={Users} label="Storage Nodes" value={String(networkStorage.storage_node_count)} />
+        </div>
+        {networkStorage.total_committed > 0 && (
+          <div className="w-full bg-gray-800 rounded-full h-3">
+            <div
+              className="bg-craftec-500 h-3 rounded-full transition-all"
+              style={{ width: `${Math.min(100, (networkStorage.total_used / networkStorage.total_committed) * 100)}%` }}
+            />
+          </div>
+        )}
       </div>
 
       {/* Capability Toggles */}
