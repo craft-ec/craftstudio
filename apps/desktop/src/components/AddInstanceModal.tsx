@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { Play, HardDrive, Globe } from "lucide-react";
 import Modal from "./Modal";
-import { useInstanceStore, generateId } from "../store/instanceStore";
-import { DEFAULT_INSTANCE } from "../types/config";
+import { useInstanceStore } from "../store/instanceStore";
+import { makeInstanceConfig } from "../lib/instanceDefaults";
 import { invoke } from "@tauri-apps/api/core";
 
 interface LocalDaemonConfig {
@@ -18,20 +18,8 @@ interface Props {
   onClose: () => void;
 }
 
-function makeInstanceConfig(index: number, overrides: { name: string; url: string; autoStart: boolean }) {
-  const suffix = index === 0 ? "" : `-${index}`;
-  return {
-    id: generateId(),
-    ...DEFAULT_INSTANCE,
-    keypairPath: `~/.craftstudio/instances${suffix}/identity.json`,
-    storagePath: `~/.craftstudio/instances${suffix}/storage`,
-    port: 4001 + index,
-    ...overrides,
-  };
-}
-
 export default function AddInstanceModal({ open, onClose }: Props) {
-  const { addInstance, instances } = useInstanceStore();
+  const addInstance = useInstanceStore((s) => s.addInstance);
   const [localConfigs, setLocalConfigs] = useState<LocalDaemonConfig[]>([]);
   const [mode, setMode] = useState<"list" | "remote">("list");
   const [remoteUrl, setRemoteUrl] = useState("ws://127.0.0.1:9091");
@@ -40,7 +28,6 @@ export default function AddInstanceModal({ open, onClose }: Props) {
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const nextIndex = instances.length;
 
   // Scan for existing configs when modal opens
   useEffect(() => {
@@ -49,7 +36,7 @@ export default function AddInstanceModal({ open, onClose }: Props) {
       try {
         const configs = await invoke<LocalDaemonConfig[]>("discover_local_daemons");
         // Filter out configs already loaded as instances
-        const existingDirs = new Set(Object.values(useInstanceStore.getState().dataDirs));
+        const existingDirs = new Set(useInstanceStore.getState().instances.map(i => i.dataDir));
         setLocalConfigs(configs.filter(c => !existingDirs.has(c.data_dir)));
       } catch {
         setLocalConfigs([]);
@@ -64,11 +51,12 @@ export default function AddInstanceModal({ open, onClose }: Props) {
       const result = await invoke<{ pid: number; ws_port: number; data_dir: string }>("start_datacraft_daemon", {
         config: { data_dir: null, socket_path: null, ws_port: null, listen_addr: null, binary_path: null },
       });
-      addInstance(makeInstanceConfig(nextIndex, {
+      addInstance(makeInstanceConfig({
         name: `Local Node (:${result.ws_port})`,
         url: `ws://127.0.0.1:${result.ws_port}`,
         autoStart: true,
-      }), { dataDir: result.data_dir });
+        dataDir: result.data_dir,
+      }));
       handleClose();
     } catch (e) {
       setError(String(e));
@@ -90,20 +78,22 @@ export default function AddInstanceModal({ open, onClose }: Props) {
           binary_path: null,
         },
       });
-      addInstance(makeInstanceConfig(nextIndex, {
+      addInstance(makeInstanceConfig({
         name: config.name,
         url: `ws://127.0.0.1:${result.ws_port}`,
         autoStart: true,
-      }), { dataDir: result.data_dir });
+        dataDir: result.data_dir,
+      }));
       handleClose();
     } catch (e) {
       const msg = String(e);
       if (msg.includes("already running")) {
-        addInstance(makeInstanceConfig(nextIndex, {
+        addInstance(makeInstanceConfig({
           name: config.name,
           url: `ws://127.0.0.1:${port}`,
           autoStart: false,
-        }), { dataDir: config.data_dir });
+          dataDir: config.data_dir,
+        }));
         handleClose();
       } else {
         setError(msg);
@@ -113,7 +103,7 @@ export default function AddInstanceModal({ open, onClose }: Props) {
 
   const connectRemote = () => {
     if (!remoteUrl.trim()) return;
-    addInstance(makeInstanceConfig(nextIndex, {
+    addInstance(makeInstanceConfig({
       name: remoteName.trim() || remoteUrl.replace(/^wss?:\/\//, ""),
       url: remoteUrl.trim(),
       autoStart: false,

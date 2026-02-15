@@ -7,6 +7,9 @@ export interface InstanceConfig {
   url: string;             // WebSocket URL for daemon connection
   autoStart: boolean;      // Auto-start daemon when tab opens
 
+  // Daemon data directory (where api_key, chunks, manifests live)
+  dataDir: string;
+
   // Identity — each instance has its own keypair
   keypairPath: string;
 
@@ -27,6 +30,7 @@ export interface InstanceConfig {
 export const DEFAULT_INSTANCE: Omit<InstanceConfig, 'id' | 'name'> = {
   url: 'ws://127.0.0.1:9091',
   autoStart: true,
+  dataDir: '~/.datacraft',
   keypairPath: '~/.craftstudio/identity.json',
   capabilities: { client: true, storage: false, aggregator: false },
   storagePath: '~/.craftstudio/storage',

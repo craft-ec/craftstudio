@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Play, FolderOpen, Server, AlertCircle, HardDrive } from "lucide-react";
-import { useInstanceStore, generateId } from "../store/instanceStore";
-import { DEFAULT_INSTANCE } from "../types/config";
+import { useInstanceStore } from "../store/instanceStore";
+import { makeInstanceConfig } from "../lib/instanceDefaults";
 import { invoke } from "@tauri-apps/api/core";
 
 interface LocalDaemonConfig {
@@ -12,26 +12,13 @@ interface LocalDaemonConfig {
   ws_port: number | null;
 }
 
-function makeInstanceConfig(index: number, overrides: { name: string; url: string; autoStart: boolean }) {
-  const suffix = index === 0 ? "" : `-${index}`;
-  return {
-    id: generateId(),
-    ...DEFAULT_INSTANCE,
-    keypairPath: `~/.craftstudio/instances${suffix}/identity.json`,
-    storagePath: `~/.craftstudio/instances${suffix}/storage`,
-    port: 4001 + index,
-    ...overrides,
-  };
-}
-
 export default function EmptyState() {
-  const { addInstance, instances } = useInstanceStore();
+  const addInstance = useInstanceStore((s) => s.addInstance);
   const [localConfigs, setLocalConfigs] = useState<LocalDaemonConfig[]>([]);
   const [scanning, setScanning] = useState(true);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const nextIndex = instances.length;
 
   // Scan for existing local daemon configs on mount
   useEffect(() => {
@@ -60,11 +47,12 @@ export default function EmptyState() {
           binary_path: null,
         },
       });
-      addInstance(makeInstanceConfig(nextIndex, {
+      addInstance(makeInstanceConfig({
         name: `Local Node (:${result.ws_port})`,
         url: `ws://127.0.0.1:${result.ws_port}`,
         autoStart: true,
-      }), { dataDir: result.data_dir });
+        dataDir: result.data_dir,
+      }));
     } catch (e) {
       const msg = String(e);
       if (msg.includes("not found")) {
@@ -91,20 +79,22 @@ export default function EmptyState() {
           binary_path: null,
         },
       });
-      addInstance(makeInstanceConfig(nextIndex, {
+      addInstance(makeInstanceConfig({
         name: config.name,
         url: `ws://127.0.0.1:${result.ws_port}`,
         autoStart: true,
-      }), { dataDir: result.data_dir });
+        dataDir: result.data_dir,
+      }));
     } catch (e) {
       const msg = String(e);
       // If daemon is already running on that port, just connect
       if (msg.includes("already running")) {
-        addInstance(makeInstanceConfig(nextIndex, {
+        addInstance(makeInstanceConfig({
           name: config.name,
           url: `ws://127.0.0.1:${port}`,
           autoStart: false,
-        }), { dataDir: config.data_dir });
+          dataDir: config.data_dir,
+        }));
       } else {
         setError(msg);
       }

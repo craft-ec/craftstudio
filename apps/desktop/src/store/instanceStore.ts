@@ -11,7 +11,7 @@ interface InstanceState {
   dataDirs: Record<string, string>;
   apiKeys: Record<string, string>;
 
-  addInstance: (instance: InstanceConfig, opts?: { dataDir?: string; apiKey?: string }) => void;
+  addInstance: (instance: InstanceConfig, opts?: { apiKey?: string }) => void;
   removeInstance: (id: string) => void;
   setActive: (id: string | null) => void;
   updateInstance: (id: string, patch: Partial<InstanceConfig>) => void;
@@ -36,11 +36,10 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
   apiKeys: {},
 
   addInstance: (instance, opts?) => {
-    const { dataDir, apiKey } = opts ?? {};
+    const { apiKey } = opts ?? {};
     set((s) => ({
       instances: [...s.instances, instance],
       activeId: instance.id,
-      ...(dataDir ? { dataDirs: { ...s.dataDirs, [instance.id]: dataDir } } : {}),
       ...(apiKey ? { apiKeys: { ...s.apiKeys, [instance.id]: apiKey } } : {}),
     }));
     // Create and init client
@@ -89,7 +88,8 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
     const instance = get().instances.find((i) => i.id === id);
     if (!instance) return;
 
-    const dataDir = get().dataDirs[id];
+    // dataDir from persisted config (primary) or runtime override
+    const dataDir = instance.dataDir || get().dataDirs[id];
     const apiKey = get().apiKeys[id];
 
     set((s) => ({
