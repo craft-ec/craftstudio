@@ -37,7 +37,7 @@ interface InstanceState {
   setDataDir: (id: string, dataDir: string) => void;
   initClient: (id: string) => void;
   getActiveClient: () => DaemonClient | undefined;
-  loadFromConfig: () => void;
+  loadFromConfig: () => Promise<void>;
   persistToConfig: () => void;
 }
 
@@ -315,26 +315,35 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
   },
 
   /** Load instances from persisted config */
-  loadFromConfig: () => {
+  loadFromConfig: async () => {
     const config = useConfigStore.getState().config;
     if (config.instances.length > 0) {
       set({
         instances: config.instances,
         activeId: config.activeInstanceId ?? config.instances[0]?.id ?? null,
       });
-      // Sync UI state from daemon config files, then auto-start
+
+      // Sync ALL instances from daemon config FIRST, then start daemons
       for (const inst of config.instances) {
-        // Read daemon config and sync instance state FROM it
         if (inst.dataDir) {
-          syncInstanceFromDaemonConfig(inst).then((patch) => {
+          try {
+            const patch = await syncInstanceFromDaemonConfig(inst);
             if (patch) {
               set((s) => ({
                 instances: s.instances.map((i) => (i.id === inst.id ? { ...i, ...patch } : i)),
               }));
-              get().persistToConfig();
             }
-          }).catch(() => {});
+          } catch {
+            // Failed to read daemon config — use CraftStudio values as-is
+          }
         }
+      }
+      // Persist any synced changes back to CraftStudio config
+      get().persistToConfig();
+
+      // Now start daemons with the SYNCED instance state
+      const syncedInstances = get().instances;
+      for (const inst of syncedInstances) {
         if (inst.autoStart && inst.dataDir) {
           const caps = capabilitiesToArray(inst.capabilities);
           const port = inst.url.match(/:(\d+)/)?.[1];
