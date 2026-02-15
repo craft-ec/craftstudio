@@ -6,6 +6,7 @@ import { useConfigStore } from "../../store/configStore";
 import StatCard from "../../components/StatCard";
 import DaemonOffline from "../../components/DaemonOffline";
 import NetworkHealth from "../../components/NetworkHealth";
+import DaemonNodes from "../../components/DaemonNodes";
 import { usePeers } from "../../hooks/usePeers";
 
 interface Capability {
@@ -74,6 +75,8 @@ export default function NodePage() {
       <DaemonOffline />
 
       <NetworkHealth />
+
+      <DaemonNodes />
 
       <h1 className="text-2xl font-bold mb-6 flex items-center gap-2">
         <Monitor className="text-craftec-500" /> Node Overview
