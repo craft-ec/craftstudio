@@ -14,6 +14,7 @@ interface LocalDaemonConfig {
 
 export default function EmptyState() {
   const addInstance = useInstanceStore((s) => s.addInstance);
+  const logActivity = useInstanceStore((s) => s.logActivity);
   const [localConfigs, setLocalConfigs] = useState<LocalDaemonConfig[]>([]);
   const [scanning, setScanning] = useState(true);
   const [starting, setStarting] = useState(false);
@@ -47,12 +48,15 @@ export default function EmptyState() {
           binary_path: null,
         },
       });
-      addInstance(makeInstanceConfig({
+      const inst = makeInstanceConfig({
         name: `Local Node (:${result.ws_port})`,
         url: `ws://127.0.0.1:${result.ws_port}`,
         autoStart: true,
         dataDir: result.data_dir,
-      }));
+      });
+      logActivity(inst.id, `Daemon started (PID ${result.pid}, port ${result.ws_port})`, "success");
+      logActivity(inst.id, `Data directory: ${result.data_dir}`);
+      addInstance(inst);
     } catch (e) {
       const msg = String(e);
       if (msg.includes("not found")) {

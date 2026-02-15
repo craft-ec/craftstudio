@@ -1,17 +1,32 @@
 import { create } from "zustand";
+
+function formatBytes(b: number): string {
+  if (b >= 1e9) return `${(b / 1e9).toFixed(1)} GB`;
+  if (b >= 1e6) return `${(b / 1e6).toFixed(1)} MB`;
+  if (b >= 1e3) return `${(b / 1e3).toFixed(1)} KB`;
+  return `${b} B`;
+}
 import { createClient, getClient, destroyClient } from "../services/daemon";
 import type { DaemonClient } from "../services/daemon";
 import type { InstanceConfig } from "../types/config";
 import { useConfigStore } from "./configStore";
 
+export interface ActivityEvent {
+  time: number;
+  message: string;
+  level: "info" | "success" | "error" | "warn";
+}
+
 interface InstanceState {
   instances: InstanceConfig[];
   activeId: string | null;
   connectionStatus: Record<string, "connected" | "disconnected" | "connecting">;
+  activityLog: Record<string, ActivityEvent[]>;
   dataDirs: Record<string, string>;
   apiKeys: Record<string, string>;
 
   addInstance: (instance: InstanceConfig, opts?: { apiKey?: string }) => void;
+  logActivity: (id: string, message: string, level?: ActivityEvent["level"]) => void;
   removeInstance: (id: string) => void;
   setActive: (id: string | null) => void;
   updateInstance: (id: string, patch: Partial<InstanceConfig>) => void;
@@ -32,8 +47,18 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
   instances: [],
   activeId: null,
   connectionStatus: {},
+  activityLog: {},
   dataDirs: {},
   apiKeys: {},
+
+  logActivity: (id, message, level = "info") => {
+    set((s) => ({
+      activityLog: {
+        ...s.activityLog,
+        [id]: [...(s.activityLog[id] || []), { time: Date.now(), message, level }].slice(-50),
+      },
+    }));
+  },
 
   addInstance: (instance, opts?) => {
     const { apiKey } = opts ?? {};
@@ -88,9 +113,11 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
     const instance = get().instances.find((i) => i.id === id);
     if (!instance) return;
 
-    // dataDir from persisted config (primary) or runtime override
+    const { logActivity } = get();
     const dataDir = instance.dataDir || get().dataDirs[id];
     const apiKey = get().apiKeys[id];
+
+    logActivity(id, `Connecting to daemon at ${instance.url}...`);
 
     set((s) => ({
       connectionStatus: { ...s.connectionStatus, [id]: "connecting" },
@@ -98,6 +125,28 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
 
     const client = createClient(id, `${instance.url}/ws`);
     client.onConnection((connected) => {
+      if (connected) {
+        logActivity(id, "WebSocket connected — daemon online", "success");
+        // Try to fetch status for more info
+        client.status().then((s) => {
+          if (s) {
+            logActivity(id, `Node has ${s.content_count} content items, ${s.shard_count} shards (${formatBytes(s.stored_bytes)})`, "info");
+          }
+        }).catch(() => {});
+        client.listPeers().then((peers) => {
+          if (peers) {
+            const count = Object.keys(peers).length;
+            const storage = Object.values(peers).filter(p => p.capabilities.includes("Storage")).length;
+            if (count > 0) {
+              logActivity(id, `Connected to ${count} peers (${storage} storage nodes)`, "success");
+            } else {
+              logActivity(id, "No peers found yet — DHT discovery in progress", "warn");
+            }
+          }
+        }).catch(() => {});
+      } else {
+        logActivity(id, "Disconnected from daemon", "error");
+      }
       set((s) => ({
         connectionStatus: {
           ...s.connectionStatus,
@@ -105,6 +154,10 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
         },
       }));
     });
+
+    if (dataDir) {
+      logActivity(id, `Loading API key from ${dataDir}`);
+    }
     client.start(dataDir, apiKey);
   },
 
