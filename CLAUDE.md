@@ -60,7 +60,12 @@ pnpm build && cd ../.. && cargo build
 - See `docs/CRAFTSTUDIO_DESIGN.md` for full design doc
 
 ## Current State
-- Scaffold complete with placeholder UI for all pages
-- Tauri commands: `get_identity`, `get_version`
-- WebSocket hook scaffolded (connects to ws://127.0.0.1:9091/ws)
-- No daemon yet — just the Tauri shell + React frontend
+- All pages wired to DataCraft daemon via WebSocket JSON-RPC 2.0
+- Singleton `DaemonClient` at `src/services/daemon.ts` — auto-reconnect, typed methods
+- `daemonStore` — reactive connection state used by StatusBar + DaemonOffline banner
+- `dataCraftStore` — publish/list/access all go through daemon IPC
+- `walletStore` — fundPool calls `settlement.fund_pool` via daemon
+- NodePage loads peers, channels, receipts, status from daemon
+- Graceful degradation: all pages work offline, show "Daemon offline" banner
+- Tauri commands: `get_identity`, `get_version`, `get_config`, `save_config`
+- Old `useWebSocket` hook still exists but superseded by `daemon` singleton
