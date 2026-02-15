@@ -5,6 +5,8 @@ import { useDaemonStore } from "../../store/daemonStore";
 import { useConfigStore } from "../../store/configStore";
 import StatCard from "../../components/StatCard";
 import DaemonOffline from "../../components/DaemonOffline";
+import NetworkHealth from "../../components/NetworkHealth";
+import { usePeers } from "../../hooks/usePeers";
 
 interface Capability {
   key: string;
@@ -26,6 +28,7 @@ export default function NodePage() {
     { key: "storage", label: "Storage", enabled: config.node.capabilities.storage },
     { key: "aggregator", label: "Aggregator", enabled: config.node.capabilities.aggregator },
   ];
+  const peerStats = usePeers();
   const [peers, setPeers] = useState<Record<string, { capabilities: string[]; last_seen: number }>>({});
   const [channels, setChannels] = useState<ChannelSummary>({ count: 0, totalLocked: 0, totalSpent: 0 });
   const [uptime, setUptime] = useState("—");
@@ -70,6 +73,8 @@ export default function NodePage() {
     <div className="max-w-4xl mx-auto">
       <DaemonOffline />
 
+      <NetworkHealth />
+
       <h1 className="text-2xl font-bold mb-6 flex items-center gap-2">
         <Monitor className="text-craftec-500" /> Node Overview
       </h1>
@@ -89,6 +94,17 @@ export default function NodePage() {
           <StatCard icon={DollarSign} label="Active Channels" value={String(channels.count)} />
           <StatCard icon={DollarSign} label="Total Locked" value={String(channels.totalLocked)} color="text-craftec-500" />
           <StatCard icon={DollarSign} label="Remaining" value={String(channels.totalLocked - channels.totalSpent)} color="text-green-400" />
+        </div>
+      </div>
+
+      {/* Peer Breakdown */}
+      <div className="bg-gray-900 rounded-xl p-4 mb-6">
+        <h2 className="text-lg font-semibold mb-3">Peer Breakdown</h2>
+        <div className="grid grid-cols-4 gap-4">
+          <StatCard icon={Users} label="Total" value={String(peerStats.total)} />
+          <StatCard icon={Users} label="Client" value={String(peerStats.client)} />
+          <StatCard icon={Users} label="Storage" value={String(peerStats.storage)} color="text-craftec-500" />
+          <StatCard icon={Users} label="Aggregator" value={String(peerStats.aggregator)} />
         </div>
       </div>
 

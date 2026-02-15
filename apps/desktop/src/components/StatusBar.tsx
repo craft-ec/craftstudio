@@ -1,11 +1,13 @@
 import { useTunnelStore } from "../store/tunnelStore";
 import { useDaemonStore } from "../store/daemonStore";
 import { useConfigStore } from "../store/configStore";
+import { usePeers } from "../hooks/usePeers";
 
 export default function StatusBar() {
   const { status, speedUp, speedDown } = useTunnelStore();
   const { connected: daemonConnected } = useDaemonStore();
   const cluster = useConfigStore((s) => s.config.solana.cluster);
+  const { total: peerCount, storage: storagePeers } = usePeers();
 
   const tunnelColor = status === "connected" ? "text-green-400" : status === "connecting" ? "text-yellow-400" : "text-gray-500";
   const daemonColor = daemonConnected ? "text-green-400" : "text-red-400";
@@ -17,6 +19,11 @@ export default function StatusBar() {
       <span className={daemonColor}>
         ● Daemon {daemonConnected ? "Online" : "Offline"}
       </span>
+      {daemonConnected && (
+        <span className="text-gray-400">
+          👥 {peerCount} peers ({storagePeers} storage)
+        </span>
+      )}
       <span className={tunnelColor}>
         ● Tunnel {status.charAt(0).toUpperCase() + status.slice(1)}
       </span>

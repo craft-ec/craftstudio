@@ -7,6 +7,8 @@ import StatCard from "../../../components/StatCard";
 import DataTable from "../../../components/DataTable";
 import Modal from "../../../components/Modal";
 import { invoke } from "@tauri-apps/api/core";
+import NetworkHealth from "../../../components/NetworkHealth";
+import { usePeers } from "../../../hooks/usePeers";
 
 function formatBytes(bytes: number): string {
   if (bytes >= 1_000_000_000) return `${(bytes / 1_000_000_000).toFixed(1)} GB`;
@@ -39,6 +41,8 @@ export default function ClientTab() {
   const [accessDid, setAccessDid] = useState("");
   const [publishing, setPublishing] = useState(false);
   const [channels, setChannels] = useState<ChannelInfo[]>([]);
+  const [showNoStorageConfirm, setShowNoStorageConfirm] = useState(false);
+  const { storage: storagePeerCount } = usePeers();
 
   useEffect(() => {
     if (connected) loadContent();
@@ -94,13 +98,21 @@ export default function ClientTab() {
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold">Client</h2>
         <button
-          onClick={() => setShowPublish(true)}
+          onClick={() => {
+            if (storagePeerCount === 0) {
+              setShowNoStorageConfirm(true);
+            } else {
+              setShowPublish(true);
+            }
+          }}
           disabled={!connected}
           className="flex items-center gap-2 px-4 py-2 bg-craftec-600 hover:bg-craftec-700 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-lg transition-colors text-sm"
         >
           <Upload size={16} /> Publish Content
         </button>
       </div>
+
+      <NetworkHealth />
 
       {error && (
         <div className="bg-red-900/20 border border-red-800 rounded-lg px-4 py-2 mb-4 text-sm text-red-300">{error}</div>
@@ -126,6 +138,7 @@ export default function ClientTab() {
             { key: "size", header: "Size", render: (item) => formatBytes(Number(item.size)) },
             { key: "encrypted", header: "Enc", render: (item) => item.encrypted ? <Lock size={14} className="text-craftec-400" /> : <Unlock size={14} className="text-gray-500" /> },
             { key: "shards", header: "Shards" },
+            { key: "distribution", header: "Distribution", render: () => <span className="text-xs text-gray-500">Local</span> },
             { key: "actions", header: "", render: (item) => (
               <button onClick={() => setShowAccess(String(item.cid))} className="text-xs text-craftec-400 hover:text-craftec-300">Access</button>
             )},
@@ -180,6 +193,17 @@ export default function ClientTab() {
               </span>
             ) : "Publish"}
           </button>
+        </div>
+      </Modal>
+
+      {/* No Storage Peers Confirmation */}
+      <Modal open={showNoStorageConfirm} onClose={() => setShowNoStorageConfirm(false)} title="No Storage Peers">
+        <div className="space-y-4">
+          <p className="text-sm text-gray-300">No storage peers connected. Content will only exist locally. Continue?</p>
+          <div className="flex gap-3 justify-end">
+            <button onClick={() => setShowNoStorageConfirm(false)} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors text-sm">Cancel</button>
+            <button onClick={() => { setShowNoStorageConfirm(false); setShowPublish(true); }} className="px-4 py-2 bg-craftec-600 hover:bg-craftec-700 text-white rounded-lg transition-colors text-sm">Publish Locally</button>
+          </div>
         </div>
       </Modal>
 
