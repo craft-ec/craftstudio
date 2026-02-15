@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { invoke } from "@tauri-apps/api/core";
 
 function formatBytes(b: number): string {
   if (b >= 1e9) return `${(b / 1e9).toFixed(1)} GB`;
@@ -30,6 +31,7 @@ interface InstanceState {
   removeInstance: (id: string) => void;
   setActive: (id: string | null) => void;
   updateInstance: (id: string, patch: Partial<InstanceConfig>) => void;
+  restartInstance: (id: string) => Promise<void>;
   setDataDir: (id: string, dataDir: string) => void;
   initClient: (id: string) => void;
   getActiveClient: () => DaemonClient | undefined;
@@ -97,10 +99,68 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
   },
 
   updateInstance: (id, patch) => {
+    const hadCapabilityChange = patch.capabilities !== undefined;
     set((s) => ({
       instances: s.instances.map((i) => (i.id === id ? { ...i, ...patch } : i)),
     }));
     get().persistToConfig();
+    // Restart daemon if capabilities changed (daemon reads them only at startup)
+    if (hadCapabilityChange) {
+      get().restartInstance(id);
+    }
+  },
+
+  restartInstance: async (id) => {
+    const { logActivity } = get();
+    // Find running daemon by listing all and matching ws_port
+    const instance = get().instances.find((i) => i.id === id);
+    if (!instance) return;
+
+    logActivity(id, "Restarting daemon for capability change...", "info");
+
+    // Destroy the WS client first
+    destroyClient(id);
+
+    // List running daemons, find the one on this instance's port
+    try {
+      const running = await invoke<Array<{ pid: number; ws_port: number }>>("list_datacraft_daemons");
+      const port = parseInt(instance.url.match(/:(\d+)/)?.[1] ?? "9091");
+      const match = running.find((d) => d.ws_port === port);
+      if (match) {
+        await invoke("stop_datacraft_daemon", { pid: match.pid });
+        logActivity(id, "Daemon stopped", "info");
+        // Small delay to let port free up
+        await new Promise((r) => setTimeout(r, 500));
+      }
+    } catch (e) {
+      logActivity(id, `Stop failed: ${e}`, "warn");
+    }
+
+    // Re-start with updated capabilities
+    const caps = [];
+    if (instance.capabilities?.client) caps.push("client");
+    if (instance.capabilities?.storage) caps.push("storage");
+    if (instance.capabilities?.aggregator) caps.push("aggregator");
+    const port = instance.url.match(/:(\d+)/)?.[1];
+
+    try {
+      await invoke("start_datacraft_daemon", {
+        config: {
+          data_dir: instance.dataDir,
+          socket_path: null,
+          ws_port: port ? parseInt(port) : null,
+          listen_addr: null,
+          binary_path: null,
+          capabilities: caps.length > 0 ? caps : ["client"],
+        },
+      });
+      logActivity(id, "Daemon restarted with new capabilities", "success");
+    } catch (e) {
+      logActivity(id, `Restart failed: ${e}`, "error");
+    }
+
+    // Reconnect WS client
+    get().initClient(id);
   },
 
   setDataDir: (id, dataDir) => {
@@ -144,6 +204,12 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
             }
           }
         }).catch(() => {});
+        // Log daemon capabilities (informational only — config is the source of truth)
+        client.call<{ capabilities?: string[] }>("node.capabilities").then((res) => {
+          if (res?.capabilities) {
+            logActivity(id, `Daemon capabilities: ${res.capabilities.join(", ")}`, "info");
+          }
+        }).catch(() => {});
       } else {
         logActivity(id, "Disconnected from daemon", "error");
       }
@@ -175,9 +241,38 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
         instances: config.instances,
         activeId: config.activeInstanceId ?? config.instances[0]?.id ?? null,
       });
-      // Init clients for all instances
+      // Auto-start daemons and init clients for all instances
       for (const inst of config.instances) {
-        get().initClient(inst.id);
+        if (inst.autoStart && inst.dataDir) {
+          // Try to start the daemon process; if already running, this is a no-op
+          const caps = [];
+          if (inst.capabilities?.client) caps.push("client");
+          if (inst.capabilities?.storage) caps.push("storage");
+          if (inst.capabilities?.aggregator) caps.push("aggregator");
+          const port = inst.url.match(/:(\d+)/)?.[1];
+          invoke<{ pid: number; ws_port: number; data_dir: string }>("start_datacraft_daemon", {
+            config: {
+              data_dir: inst.dataDir,
+              socket_path: null,
+              ws_port: port ? parseInt(port) : null,
+              listen_addr: null,
+              binary_path: null,
+              capabilities: caps.length > 0 ? caps : ["client"],
+            },
+          }).then(() => {
+            get().logActivity(inst.id, "Daemon auto-started", "success");
+          }).catch((e) => {
+            // Already running or binary not found — either way, try connecting
+            const msg = String(e);
+            if (!msg.includes("already running")) {
+              get().logActivity(inst.id, `Auto-start failed: ${msg}`, "warn");
+            }
+          }).finally(() => {
+            get().initClient(inst.id);
+          });
+        } else {
+          get().initClient(inst.id);
+        }
       }
     }
   },

@@ -73,6 +73,14 @@ export const DEFAULT_CONFIG: CraftStudioConfig = {
   },
 };
 
+/** Daemon runtime config — timing knobs exposed via get-config/set-config IPC */
+export interface DaemonConfig {
+  capability_announce_interval_secs: number;
+  reannounce_interval_secs: number;
+  reannounce_threshold_secs: number;
+  challenger_interval_secs?: number;
+}
+
 /** Deep merge b into a (b wins) */
 export function mergeConfig(
   base: CraftStudioConfig,

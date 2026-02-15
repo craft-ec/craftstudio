@@ -8,9 +8,14 @@ import {
   Database,
   Layers,
   MonitorSmartphone,
+  RotateCw,
+  Power,
+  PowerOff,
 } from "lucide-react";
+import { invoke } from "@tauri-apps/api/core";
 import { useInstanceStore } from "../../store/instanceStore";
 import { useDaemon, useActiveConnection } from "../../hooks/useDaemon";
+import { destroyClient } from "../../services/daemon";
 import StatCard from "../../components/StatCard";
 import NetworkHealth from "../../components/NetworkHealth";
 import ActivityLog from "../../components/ActivityLog";
@@ -30,7 +35,107 @@ export default function DashboardPage() {
   });
   const [peerCount, setPeerCount] = useState(0);
   const [storagePeers, setStoragePeers] = useState(0);
+  const [restarting, setRestarting] = useState(false);
   const did: string | null = null; // TODO: fetch from daemon
+
+  const logActivity = useInstanceStore((s) => s.logActivity);
+  const initClient = useInstanceStore((s) => s.initClient);
+
+  const handleRestart = useCallback(async () => {
+    if (!instance || restarting) return;
+    setRestarting(true);
+    logActivity(instance.id, "Restarting daemon...", "warn");
+    try {
+      // Find the running daemon by matching ws_port
+      const daemons = await invoke<Array<{ pid: number; ws_port: number }>>('list_datacraft_daemons');
+      const port = parseInt(instance.url.match(/:(\d+)/)?.[1] ?? '9091');
+      const running = daemons.find(d => d.ws_port === port);
+
+      // Disconnect WS client
+      destroyClient(instance.id);
+
+      if (running) {
+        await invoke('stop_datacraft_daemon', { pid: running.pid });
+        logActivity(instance.id, "Daemon stopped", "info");
+      }
+
+      // Brief pause to let port release
+      await new Promise(r => setTimeout(r, 500));
+
+      // Start daemon with current config
+      const caps: string[] = [];
+      if (instance.capabilities?.client) caps.push("client");
+      if (instance.capabilities?.storage) caps.push("storage");
+      if (instance.capabilities?.aggregator) caps.push("aggregator");
+
+      await invoke('start_datacraft_daemon', {
+        config: {
+          data_dir: instance.dataDir,
+          socket_path: null,
+          ws_port: port,
+          listen_addr: null,
+          binary_path: null,
+          capabilities: caps.length > 0 ? caps : ["client"],
+        },
+      });
+      logActivity(instance.id, "Daemon restarted", "success");
+
+      // Reconnect WS
+      await new Promise(r => setTimeout(r, 1000));
+      initClient(instance.id);
+    } catch (e) {
+      logActivity(instance.id, `Restart failed: ${e}`, "error");
+    } finally {
+      setRestarting(false);
+    }
+  }, [instance, restarting, logActivity, initClient]);
+
+  const handleStop = useCallback(async () => {
+    if (!instance) return;
+    logActivity(instance.id, "Stopping daemon...", "warn");
+    try {
+      const daemons = await invoke<Array<{ pid: number; ws_port: number }>>('list_datacraft_daemons');
+      const port = parseInt(instance.url.match(/:(\d+)/)?.[1] ?? '9091');
+      const running = daemons.find(d => d.ws_port === port);
+      destroyClient(instance.id);
+      if (running) {
+        await invoke('stop_datacraft_daemon', { pid: running.pid });
+        logActivity(instance.id, "Daemon stopped", "success");
+      } else {
+        logActivity(instance.id, "No running daemon found", "warn");
+      }
+    } catch (e) {
+      logActivity(instance.id, `Stop failed: ${e}`, "error");
+    }
+  }, [instance, logActivity]);
+
+  const handleStart = useCallback(async () => {
+    if (!instance) return;
+    logActivity(instance.id, "Starting daemon...", "info");
+    try {
+      const caps: string[] = [];
+      if (instance.capabilities?.client) caps.push("client");
+      if (instance.capabilities?.storage) caps.push("storage");
+      if (instance.capabilities?.aggregator) caps.push("aggregator");
+      const port = parseInt(instance.url.match(/:(\d+)/)?.[1] ?? '9091');
+
+      await invoke('start_datacraft_daemon', {
+        config: {
+          data_dir: instance.dataDir,
+          socket_path: null,
+          ws_port: port,
+          listen_addr: null,
+          binary_path: null,
+          capabilities: caps.length > 0 ? caps : ["client"],
+        },
+      });
+      logActivity(instance.id, "Daemon started", "success");
+      await new Promise(r => setTimeout(r, 1000));
+      initClient(instance.id);
+    } catch (e) {
+      logActivity(instance.id, `Start failed: ${e}`, "error");
+    }
+  }, [instance, logActivity, initClient]);
 
   const loadData = useCallback(async () => {
     if (!client || !connected) return;
@@ -83,26 +188,62 @@ export default function DashboardPage() {
       </h1>
 
       {/* Connection Status */}
-      <div className="bg-gray-900 rounded-xl p-6 mb-6 flex items-center gap-4">
-        <div
-          className={`w-4 h-4 rounded-full ${
-            connStatus === "connected"
-              ? "bg-green-400 animate-pulse"
-              : connStatus === "connecting"
-              ? "bg-yellow-400 animate-pulse"
-              : "bg-red-400"
-          }`}
-        />
-        <div>
-          <p className="font-semibold text-lg">
-            {connStatus === "connected"
-              ? "Connected"
-              : connStatus === "connecting"
-              ? "Connecting..."
-              : "Disconnected"}
-          </p>
-          <p className="text-sm text-gray-500">{instance?.url ?? "—"}</p>
+      <div className="bg-gray-900 rounded-xl p-6 mb-6 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div
+            className={`w-4 h-4 rounded-full ${
+              connStatus === "connected"
+                ? "bg-green-400 animate-pulse"
+                : connStatus === "connecting"
+                ? "bg-yellow-400 animate-pulse"
+                : "bg-red-400"
+            }`}
+          />
+          <div>
+            <p className="font-semibold text-lg">
+              {connStatus === "connected"
+                ? "Connected"
+                : connStatus === "connecting"
+                ? "Connecting..."
+                : "Disconnected"}
+            </p>
+            <p className="text-sm text-gray-500">{instance?.url ?? "—"}</p>
+          </div>
         </div>
+        {instance && (
+          <div className="flex items-center gap-2">
+            {connected ? (
+              <>
+                <button
+                  onClick={handleRestart}
+                  disabled={restarting}
+                  title="Restart daemon"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-yellow-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <RotateCw size={14} className={restarting ? "animate-spin" : ""} />
+                  Restart
+                </button>
+                <button
+                  onClick={handleStop}
+                  title="Stop daemon"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-red-400 transition-colors"
+                >
+                  <PowerOff size={14} />
+                  Stop
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={handleStart}
+                title="Start daemon"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-craftec-600/20 hover:bg-craftec-600/30 text-craftec-400 border border-craftec-600/30 transition-colors"
+              >
+                <Power size={14} />
+                Start
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Activity Log */}

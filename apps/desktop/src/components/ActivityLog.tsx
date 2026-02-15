@@ -20,9 +20,11 @@ function formatTime(ts: number): string {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
+const EMPTY_LOG: ActivityEvent[] = [];
+
 export default function ActivityLog() {
   const activeId = useInstanceStore((s) => s.activeId);
-  const log = useInstanceStore((s) => activeId ? s.activityLog[activeId] || [] : []);
+  const log = useInstanceStore((s) => (activeId ? s.activityLog[activeId] : undefined)) ?? EMPTY_LOG;
 
   if (log.length === 0) return null;
 

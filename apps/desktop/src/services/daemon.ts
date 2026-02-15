@@ -8,6 +8,7 @@
  */
 
 import { invoke } from '@tauri-apps/api/core';
+import type { DaemonConfig } from '../types/config';
 
 const RECONNECT_MS = 3_000;
 const REQUEST_TIMEOUT_MS = 30_000;
@@ -96,15 +97,18 @@ class DaemonClient {
         console.log("[daemon] connected to", this._url);
       };
 
-      ws.onclose = () => {
+      ws.onclose = (ev) => {
         this._connected = false;
         this.notifyConnection(false);
         this.rejectAll("WebSocket closed");
-        console.log("[daemon] disconnected");
+        console.log("[daemon] disconnected — code:", ev.code, "reason:", ev.reason, "wasClean:", ev.wasClean);
         this.scheduleReconnect();
       };
 
-      ws.onerror = () => ws.close();
+      ws.onerror = (ev) => {
+        console.error("[daemon] ws error:", ev);
+        ws.close();
+      };
 
       ws.onmessage = (ev) => {
         try {
@@ -344,6 +348,15 @@ class DaemonClient {
 
   closeSettlementChannel(user: string, node: string, amount: number, nonce: number, voucherSignature?: string) {
     return this.call("settlement.close_channel", { user, node, amount, nonce, ...(voucherSignature && { voucher_signature: voucherSignature }) });
+  }
+
+  // Daemon config
+  getDaemonConfig() {
+    return this.call<DaemonConfig>('get-config');
+  }
+
+  setDaemonConfig(patch: Partial<DaemonConfig>) {
+    return this.call('set-config', { config: JSON.stringify(patch) });
   }
 
   // Peers

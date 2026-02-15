@@ -125,12 +125,23 @@ impl DaemonManager {
 
         let binary = Self::find_binary(config.binary_path.as_deref())?;
 
-        // Check if port already in use by us
+        // Clean up dead processes before checking for conflicts
         {
-            let daemons = self.daemons.lock().unwrap();
+            let mut daemons = self.daemons.lock().unwrap();
+            daemons.retain_mut(|d| {
+                match d.child.try_wait() {
+                    Ok(Some(_)) => false, // exited
+                    _ => true,
+                }
+            });
             if daemons.iter().any(|d| d.info.ws_port == ws_port) {
                 return Err(format!("A daemon is already running on ws_port {}", ws_port));
             }
+        }
+
+        // Check if a daemon is already listening on this port (from a previous session)
+        if std::net::TcpStream::connect(format!("127.0.0.1:{}", ws_port)).is_ok() {
+            return Err(format!("Port {} already in use — daemon already running", ws_port));
         }
 
         // Build capabilities env var — default to "client" only if not specified

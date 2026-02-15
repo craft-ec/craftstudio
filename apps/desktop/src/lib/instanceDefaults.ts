@@ -11,6 +11,7 @@ export function makeInstanceConfig(
     url: string;
     autoStart: boolean;
     dataDir?: string;
+    capabilities?: { client: boolean; storage: boolean; aggregator: boolean };
   }
 ): InstanceConfig {
   const id = generateId();

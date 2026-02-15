@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
   Settings,
@@ -8,11 +8,13 @@ import {
   Server,
   Key,
   Database,
+  Timer,
 } from 'lucide-react';
 import { useConfigStore } from '../../store/configStore';
 import { useInstanceStore } from '../../store/instanceStore';
 import { useActiveInstance } from '../../hooks/useActiveInstance';
-import { CraftStudioConfig, InstanceConfig } from '../../types/config';
+import { getClient } from '../../services/daemon';
+import { CraftStudioConfig, InstanceConfig, DaemonConfig } from '../../types/config';
 
 /* ─── tiny helpers ─── */
 function Toggle({
@@ -161,6 +163,88 @@ function Slider({
         className="w-full accent-craftec-500"
       />
     </label>
+  );
+}
+
+/* ─── Daemon Config section ─── */
+function DaemonConfigSection({ instanceId }: { instanceId: string }) {
+  const status = useInstanceStore((s) => s.connectionStatus[instanceId]);
+  const [daemonCfg, setDaemonCfg] = React.useState<DaemonConfig | null>(null);
+  const [loading, setLoading] = React.useState(false);
+  const saveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Load daemon config when connected
+  useEffect(() => {
+    if (status !== 'connected') {
+      setDaemonCfg(null);
+      return;
+    }
+    const client = getClient(instanceId);
+    if (!client) return;
+    setLoading(true);
+    client.getDaemonConfig()
+      .then((cfg) => setDaemonCfg(cfg))
+      .catch(() => setDaemonCfg(null))
+      .finally(() => setLoading(false));
+  }, [instanceId, status]);
+
+  const patchDaemonCfg = useCallback((field: keyof DaemonConfig, value: number) => {
+    if (!daemonCfg) return;
+    const next = { ...daemonCfg, [field]: value };
+    setDaemonCfg(next);
+    // Debounced save
+    if (saveRef.current) clearTimeout(saveRef.current);
+    saveRef.current = setTimeout(() => {
+      const client = getClient(instanceId);
+      if (client?.connected) {
+        client.setDaemonConfig({ [field]: value }).catch(console.error);
+      }
+    }, 500);
+  }, [daemonCfg, instanceId]);
+
+  if (status !== 'connected') return null;
+
+  if (loading) {
+    return (
+      <Section icon={Timer} title="Daemon Timing">
+        <div className="flex items-center gap-2 text-gray-500 text-sm">
+          <Loader2 className="animate-spin" size={16} /> Loading daemon config…
+        </div>
+      </Section>
+    );
+  }
+
+  if (!daemonCfg) return null;
+
+  return (
+    <Section icon={Timer} title="Daemon Timing">
+      <Input
+        label="Capability Announce Interval (secs)"
+        value={String(daemonCfg.capability_announce_interval_secs)}
+        onChange={(v) => { const n = parseInt(v, 10); if (!isNaN(n) && n > 0) patchDaemonCfg('capability_announce_interval_secs', n); }}
+        type="number"
+      />
+      <Input
+        label="Re-announce Interval (secs)"
+        value={String(daemonCfg.reannounce_interval_secs)}
+        onChange={(v) => { const n = parseInt(v, 10); if (!isNaN(n) && n > 0) patchDaemonCfg('reannounce_interval_secs', n); }}
+        type="number"
+      />
+      <Input
+        label="Re-announce Threshold (secs)"
+        value={String(daemonCfg.reannounce_threshold_secs)}
+        onChange={(v) => { const n = parseInt(v, 10); if (!isNaN(n) && n > 0) patchDaemonCfg('reannounce_threshold_secs', n); }}
+        type="number"
+      />
+      {daemonCfg.challenger_interval_secs != null && (
+        <Input
+          label="Challenger Interval (secs)"
+          value={String(daemonCfg.challenger_interval_secs)}
+          onChange={(v) => { const n = parseInt(v, 10); if (!isNaN(n) && n > 0) patchDaemonCfg('challenger_interval_secs', n); }}
+          type="number"
+        />
+      )}
+    </Section>
   );
 }
 
@@ -377,6 +461,7 @@ export default function SettingsPage() {
               />
             </Section>
 
+            <DaemonConfigSection instanceId={instance.id} />
           </>
         ) : (
           <div className="bg-gray-900 rounded-xl p-5 text-center text-gray-500 text-sm">

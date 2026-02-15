@@ -13,17 +13,8 @@ fn config_path() -> PathBuf {
 fn default_config_json() -> String {
     serde_json::json!({
         "solana": { "cluster": "devnet" },
-        "identity": { "keypairPath": "~/.craftstudio/identity.json" },
-        "daemons": {
-            "datacraft": { "url": "ws://127.0.0.1:9091", "autoConnect": true },
-            "tunnelcraft": { "url": "ws://127.0.0.1:9092", "autoConnect": false }
-        },
-        "node": {
-            "capabilities": { "client": true, "storage": false, "aggregator": false },
-            "storagePath": "~/.craftstudio/storage",
-            "maxStorageGB": 50,
-            "port": 4001
-        },
+        "instances": [],
+        "activeInstanceId": null,
         "ui": {
             "theme": "dark",
             "notifications": true,
