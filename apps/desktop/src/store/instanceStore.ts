@@ -243,9 +243,24 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
       }));
     });
 
+    // Dedup: track recent events to suppress repeated spam
+    const recentEvents = new Map<string, number>(); // key → timestamp
+    const DEDUP_WINDOW_MS = 10_000; // suppress identical events within 10s
+
     // Subscribe to daemon server-push events and categorize them
     client.onEvent((method, params) => {
       const p = (params ?? {}) as Record<string, unknown>;
+
+      // Dedup: skip if we saw the same event type + key recently
+      const dedupeKey = `${method}:${p.peer_id ?? p.content_id ?? ""}`;
+      const now = Date.now();
+      const lastSeen = recentEvents.get(dedupeKey);
+      if (lastSeen && now - lastSeen < DEDUP_WINDOW_MS) return;
+      recentEvents.set(dedupeKey, now);
+      // Prune old entries
+      if (recentEvents.size > 200) {
+        for (const [k, t] of recentEvents) { if (now - t > DEDUP_WINDOW_MS) recentEvents.delete(k); }
+      }
 
       let category: ActivityCategory = "system";
       let level: ActivityEvent["level"] = "info";
@@ -295,19 +310,37 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
         case "peer_discovered":
           msg = `mDNS: discovered peer ${short(p.peer_id)} at ${p.address ?? ""}`;
           break;
-        case "peer_connected":
-          msg = `Connected to ${short(p.peer_id)} (${p.total_peers ?? "?"} peers total)`;
+        case "peer_connected": {
+          const total = Number(p.total_peers ?? 0);
+          msg = total === 1
+            ? `First peer connected: ${short(p.peer_id)} at ${p.address ?? "?"} — network discovery active`
+            : `Peer connected: ${short(p.peer_id)} — ${total} peers in swarm`;
+          level = "success";
           break;
-        case "peer_disconnected":
-          msg = `Disconnected from ${short(p.peer_id)} (${p.remaining_peers ?? "?"} peers remaining)`;
+        }
+        case "peer_disconnected": {
+          const remaining = Number(p.remaining_peers ?? 0);
+          msg = remaining === 0
+            ? `Peer ${short(p.peer_id)} disconnected — no peers remaining, will keep searching`
+            : `Peer ${short(p.peer_id)} disconnected — ${remaining} peer${remaining > 1 ? "s" : ""} remaining`;
           break;
+        }
 
         // Capabilities
         case "capability_announced": {
-          const caps = (p.capabilities as string[])?.join(", ") ?? "";
-          const committed = p.storage_committed ? ` — committed ${formatBytes(Number(p.storage_committed))}` : "";
-          const used = p.storage_used ? `, used ${formatBytes(Number(p.storage_used))}` : "";
-          msg = `Peer ${short(p.peer_id)} capabilities: [${caps}]${committed}${used}`;
+          const caps = p.capabilities as string[] ?? [];
+          const isStorage = caps.includes("Storage");
+          const committed = Number(p.storage_committed ?? 0);
+          const used = Number(p.storage_used ?? 0);
+          const avail = committed - used;
+          if (isStorage && committed > 0) {
+            msg = `Storage node ${short(p.peer_id)} online — ${formatBytes(avail)} available of ${formatBytes(committed)} committed (${Math.round(used / committed * 100)}% used)`;
+            level = "success";
+          } else if (isStorage) {
+            msg = `Storage node ${short(p.peer_id)} online — no storage limit configured`;
+          } else {
+            msg = `Peer ${short(p.peer_id)} joined as ${caps.join(", ").toLowerCase()}`;
+          }
           break;
         }
         case "capability_published":
@@ -316,43 +349,92 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
 
         // Content operations
         case "content_published":
-          msg = `Published content: ${formatBytes(Number(p.size ?? 0))} — ${p.chunks ?? 0} chunks × ${p.shards ?? "?"} shards`;
+          msg = `Content stored locally: ${formatBytes(Number(p.size ?? 0))} → ${p.chunks ?? 0} chunks × ${p.shards ?? "?"} shards — announcing to network...`;
           break;
         case "provider_announced":
-          msg = `DHT announce complete for ${short(p.content_id)}`;
+          msg = `Content ${short(p.content_id)} announced to DHT — storage nodes can now discover and store it`;
           break;
         case "content_reannounced":
           msg = `Re-announced ${short(p.content_id)} to DHT`;
           break;
 
         // DHT results
-        case "providers_resolved":
-          msg = `Found ${p.count ?? 0} providers for ${short(p.content_id)}`;
+        case "providers_resolved": {
+          const count = Number(p.count ?? 0);
+          if (count > 0) {
+            msg = `Content ${short(p.content_id)} has ${count} provider${count > 1 ? "s" : ""} — data is available on the network`;
+            level = "success";
+          } else {
+            msg = `Content ${short(p.content_id)} has no providers yet — shards need to be distributed to storage nodes`;
+            level = "warn";
+          }
           break;
+        }
         case "manifest_retrieved":
           msg = `Retrieved manifest for ${short(p.content_id)} (${p.chunks ?? 0} chunks)`;
           break;
-        case "dht_error":
-          msg = `DHT error for ${short(p.content_id)}: ${p.error ?? "unknown"} — ${p.next_action ?? ""}`;
-          level = "error";
+        case "dht_error": {
+          const errMsg = String(p.error ?? "unknown");
+          const next = p.next_action ? ` → ${p.next_action}` : "";
+          if (errMsg.includes("no results")) {
+            msg = `No DHT results for ${short(p.content_id)} — network may still be bootstrapping${next}`;
+            level = "warn";
+          } else {
+            msg = `DHT error for ${short(p.content_id)}: ${errMsg}${next}`;
+            level = "error";
+          }
           break;
+        }
 
         // Distribution
-        case "content_distributed":
-          msg = `Distributed ${p.shards_pushed ?? 0}/${p.total_shards ?? "?"} shards for ${short(p.content_id)} to ${p.target_peers ?? "?"} peers`;
+        case "content_distributed": {
+          const pushed = Number(p.shards_pushed ?? 0);
+          const total = Number(p.total_shards ?? 0);
+          const peers = Number(p.target_peers ?? 0);
+          if (pushed >= total) {
+            msg = `Content ${short(p.content_id)} fully distributed — ${pushed} shards across ${peers} storage node${peers > 1 ? "s" : ""}`;
+          } else {
+            msg = `Content ${short(p.content_id)} partially distributed — ${pushed}/${total} shards sent to ${peers} node${peers > 1 ? "s" : ""}`;
+            level = "warn";
+          }
           break;
-        case "distribution_skipped":
-          msg = `Distribution skipped: ${p.reason ?? "unknown"} — will retry in ${p.retry_secs ?? "?"}s`;
+        }
+        case "distribution_skipped": {
+          const retry = Number(p.retry_secs ?? 600);
+          msg = `Cannot distribute: ${p.reason ?? "unknown reason"} — retrying in ${retry >= 60 ? Math.round(retry / 60) + "min" : retry + "s"}`;
           level = "warn";
           break;
+        }
 
         // Maintenance
-        case "maintenance_cycle_started":
-          msg = `Maintenance cycle: ${p.content_count ?? 0} items (${p.needs_announce ?? 0} announce, ${p.needs_distribute ?? 0} distribute)`;
+        case "maintenance_cycle_started": {
+          const na = Number(p.needs_announce ?? 0);
+          const nd = Number(p.needs_distribute ?? 0);
+          if (na === 0 && nd === 0) {
+            msg = `Maintenance check: all ${p.content_count ?? 0} items healthy — nothing to do`;
+          } else {
+            const parts = [];
+            if (na > 0) parts.push(`${na} to re-announce`);
+            if (nd > 0) parts.push(`${nd} to distribute`);
+            msg = `Maintenance starting: ${parts.join(", ")}`;
+          }
           break;
-        case "maintenance_cycle_completed":
-          msg = `Maintenance complete — announced ${p.announced ?? 0}, distributed ${p.distributed ?? 0}`;
+        }
+        case "maintenance_cycle_completed": {
+          const a = Number(p.announced ?? 0);
+          const d = Number(p.distributed ?? 0);
+          const next = p.next_run_secs ? ` — next check in ${Math.round(Number(p.next_run_secs) / 60)}min` : "";
+          if (a === 0 && d === 0) {
+            msg = `Maintenance complete — no changes needed${next}`;
+          } else {
+            const parts = [];
+            if (a > 0) parts.push(`announced ${a}`);
+            if (d > 0) parts.push(`distributed ${d}`);
+            msg = `Maintenance complete: ${parts.join(", ")}${next}`;
+            level = "success";
+          }
           break;
+        }
 
         // Gossip
         case "storage_receipt_received":
