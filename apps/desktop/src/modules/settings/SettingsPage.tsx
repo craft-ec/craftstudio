@@ -1,12 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
   Settings,
   Globe,
   Monitor,
-  RotateCcw,
-  Save,
-  Check,
   Loader2,
   Server,
   Key,
@@ -169,52 +166,34 @@ function Slider({
 
 /* ─── Main component ─── */
 export default function SettingsPage() {
-  const { config, loaded, saving, load, reset } = useConfigStore();
+  const { config, loaded, load } = useConfigStore();
   const updateStore = useConfigStore((s) => s.update);
   const instance = useActiveInstance();
   const updateInstance = useInstanceStore((s) => s.updateInstance);
-
-  // Local draft state for global settings
-  const [draft, setDraft] = useState<CraftStudioConfig>(config);
-  const [dirty, setDirty] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!loaded) load();
   }, [loaded, load]);
 
-  useEffect(() => {
-    setDraft(config);
-    setDirty(false);
-  }, [config]);
-
-  const patch = (fn: (d: CraftStudioConfig) => void) => {
-    setDraft((prev) => {
-      const next = structuredClone(prev);
-      fn(next);
-      return next;
-    });
-    setDirty(true);
-    setSaved(false);
-  };
-
-  const handleSave = async () => {
-    await updateStore(draft);
-    setDirty(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-  };
-
-  const handleReset = async () => {
-    await reset();
-    setSaved(false);
-  };
+  // Auto-save global settings with debounce
+  const patchGlobal = useCallback((fn: (d: CraftStudioConfig) => void) => {
+    const next = structuredClone(config);
+    fn(next);
+    // Debounce the save
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      updateStore(next);
+    }, 300);
+    // Optimistic update for immediate UI feedback
+    updateStore(next);
+  }, [config, updateStore]);
 
   // Instance field updater — persists immediately via instanceStore
-  const patchInstance = (fields: Partial<InstanceConfig>) => {
+  const patchInstance = useCallback((fields: Partial<InstanceConfig>) => {
     if (!instance) return;
     updateInstance(instance.id, fields);
-  };
+  }, [instance, updateInstance]);
 
   if (!loaded) {
     return (
@@ -230,34 +209,7 @@ export default function SettingsPage() {
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <Settings className="text-craftec-500" /> Settings
         </h1>
-        <div className="flex gap-2">
-          <button
-            onClick={handleReset}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition-colors"
-          >
-            <RotateCcw size={14} /> Reset
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={!dirty || saving}
-            className={`flex items-center gap-1.5 px-4 py-1.5 text-sm rounded-lg font-medium transition-colors ${
-              dirty
-                ? 'bg-craftec-500 hover:bg-craftec-600 text-white'
-                : saved
-                  ? 'bg-green-600/20 text-green-400'
-                  : 'bg-gray-800 text-gray-500 cursor-not-allowed'
-            }`}
-          >
-            {saving ? (
-              <Loader2 size={14} className="animate-spin" />
-            ) : saved ? (
-              <Check size={14} />
-            ) : (
-              <Save size={14} />
-            )}
-            {saving ? 'Saving...' : saved ? 'Saved' : 'Save'}
-          </button>
-        </div>
+        <span className="text-xs text-gray-500">Auto-saved</span>
       </div>
 
       <div className="space-y-4">
@@ -265,9 +217,9 @@ export default function SettingsPage() {
         <Section icon={Globe} title="Network">
           <Select
             label="Solana Cluster"
-            value={draft.solana.cluster}
+            value={config.solana.cluster}
             onChange={(v) =>
-              patch((d) => {
+              patchGlobal((d) => {
                 d.solana.cluster = v as CraftStudioConfig['solana']['cluster'];
               })
             }
@@ -277,19 +229,19 @@ export default function SettingsPage() {
               { value: 'custom', label: 'Custom RPC' },
             ]}
           />
-          {draft.solana.cluster === 'custom' && (
+          {config.solana.cluster === 'custom' && (
             <Input
               label="Custom RPC URL"
-              value={draft.solana.customRpcUrl ?? ''}
-              onChange={(v) => patch((d) => { d.solana.customRpcUrl = v || undefined; })}
+              value={config.solana.customRpcUrl ?? ''}
+              onChange={(v) => patchGlobal((d) => { d.solana.customRpcUrl = v || undefined; })}
               placeholder="https://my-rpc.example.com"
               mono
             />
           )}
           <Input
             label="USDC Mint Override (optional)"
-            value={draft.solana.usdcMintOverride ?? ''}
-            onChange={(v) => patch((d) => { d.solana.usdcMintOverride = v || undefined; })}
+            value={config.solana.usdcMintOverride ?? ''}
+            onChange={(v) => patchGlobal((d) => { d.solana.usdcMintOverride = v || undefined; })}
             placeholder="Leave empty for default"
             mono
           />
@@ -299,8 +251,8 @@ export default function SettingsPage() {
         <Section icon={Monitor} title="Interface">
           <Select
             label="Theme"
-            value={draft.ui.theme}
-            onChange={(v) => patch((d) => { d.ui.theme = v as CraftStudioConfig['ui']['theme']; })}
+            value={config.ui.theme}
+            onChange={(v) => patchGlobal((d) => { d.ui.theme = v as CraftStudioConfig['ui']['theme']; })}
             options={[
               { value: 'dark', label: 'Dark' },
               { value: 'light', label: 'Light' },
@@ -309,18 +261,18 @@ export default function SettingsPage() {
           />
           <Toggle
             label="Notifications"
-            checked={draft.ui.notifications}
-            onChange={(v) => patch((d) => { d.ui.notifications = v; })}
+            checked={config.ui.notifications}
+            onChange={(v) => patchGlobal((d) => { d.ui.notifications = v; })}
           />
           <Toggle
             label="Start Minimized"
-            checked={draft.ui.startMinimized}
-            onChange={(v) => patch((d) => { d.ui.startMinimized = v; })}
+            checked={config.ui.startMinimized}
+            onChange={(v) => patchGlobal((d) => { d.ui.startMinimized = v; })}
           />
           <Toggle
             label="Launch on Startup"
-            checked={draft.ui.launchOnStartup}
-            onChange={(v) => patch((d) => { d.ui.launchOnStartup = v; })}
+            checked={config.ui.launchOnStartup}
+            onChange={(v) => patchGlobal((d) => { d.ui.launchOnStartup = v; })}
           />
         </Section>
 
