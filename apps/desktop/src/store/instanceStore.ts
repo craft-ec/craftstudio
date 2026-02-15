@@ -31,7 +31,7 @@ interface InstanceState {
   logActivity: (id: string, message: string, level?: ActivityEvent["level"]) => void;
   removeInstance: (id: string) => void;
   setActive: (id: string | null) => void;
-  updateInstance: (id: string, patch: Partial<InstanceConfig>) => void;
+  updateInstance: (id: string, patch: Partial<InstanceConfig>) => Promise<void>;
   restartInstance: (id: string) => Promise<void>;
   initClient: (id: string) => void;
   getActiveClient: () => DaemonClient | undefined;
@@ -115,7 +115,7 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
     get().persistToConfig();
   },
 
-  updateInstance: (id, patch) => {
+  updateInstance: async (id, patch) => {
     const needsRestart = RESTART_REQUIRED_FIELDS.some((f) => f in patch);
 
     set((s) => ({
@@ -125,7 +125,7 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
     // Write full updated config to {dataDir}/config.json
     const instance = get().instances.find((i) => i.id === id);
     if (instance?.dataDir) {
-      writeInstanceConfig(instance.dataDir, instance).catch((e) =>
+      await writeInstanceConfig(instance.dataDir, instance).catch((e) =>
         console.error("[instanceStore] Failed to write instance config:", e)
       );
 
@@ -138,12 +138,10 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
       }
     }
 
-    // Restart daemon if required fields changed
+    // Restart daemon if required fields changed — config is written, safe to restart
     if (needsRestart) {
-      get().restartInstance(id);
+      await get().restartInstance(id);
     }
-
-    // NO writes to global config for instance settings
   },
 
   restartInstance: async (id) => {
