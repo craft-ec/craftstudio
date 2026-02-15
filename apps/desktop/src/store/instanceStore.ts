@@ -129,11 +129,19 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
         console.error("[instanceStore] Failed to write instance config:", e)
       );
 
-      // Push via WS if connected and hot-reloadable
+      // Push daemon-relevant fields via WS if connected and hot-reloadable
       if (!needsRestart) {
-        const client = getClient(id);
-        if (client?.connected) {
-          client.setDaemonConfig(patch).catch(console.error);
+        const daemonFields = ['capability_announce_interval_secs', 'reannounce_interval_secs',
+          'reannounce_threshold_secs', 'challenger_interval_secs', 'max_storage_bytes'];
+        const daemonPatch: Record<string, unknown> = {};
+        for (const key of daemonFields) {
+          if (key in patch) daemonPatch[key] = (patch as Record<string, unknown>)[key];
+        }
+        if (Object.keys(daemonPatch).length > 0) {
+          const client = getClient(id);
+          if (client?.connected) {
+            client.setDaemonConfig(daemonPatch).catch(console.error);
+          }
         }
       }
     }
