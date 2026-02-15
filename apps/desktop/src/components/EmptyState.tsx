@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Play, Globe, Server } from "lucide-react";
+import { Play, Globe, Server, AlertCircle } from "lucide-react";
 import { useInstanceStore, generateId } from "../store/instanceStore";
 import { invoke } from "@tauri-apps/api/core";
 
@@ -9,9 +9,11 @@ export default function EmptyState() {
   const [remoteUrl, setRemoteUrl] = useState("ws://127.0.0.1:9091");
   const [remoteName, setRemoteName] = useState("");
   const [starting, setStarting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const startLocal = async () => {
     setStarting(true);
+    setError(null);
     try {
       const result = await invoke<{ pid: number; ws_port: number }>("start_datacraft_daemon", {
         config: {
@@ -30,15 +32,13 @@ export default function EmptyState() {
         capabilities: { client: true, storage: false, aggregator: false },
       });
     } catch (e) {
-      console.error("Failed to start daemon:", e);
-      // Still create the instance with default port
-      addInstance({
-        id: generateId(),
-        name: "Local Node",
-        url: "ws://127.0.0.1:9091",
-        autoStart: true,
-        capabilities: { client: true, storage: false, aggregator: false },
-      });
+      const msg = String(e);
+      console.error("Failed to start daemon:", msg);
+      if (msg.includes("not found")) {
+        setError("datacraft-daemon not found. Run: cargo install --path crates/daemon");
+      } else {
+        setError(msg);
+      }
     } finally {
       setStarting(false);
     }
@@ -66,6 +66,13 @@ export default function EmptyState() {
         <p className="text-gray-500 mb-8">
           Connect to a DataCraft daemon to get started. Start a local node or connect to a remote one.
         </p>
+
+        {error && (
+          <div className="bg-red-900/30 border border-red-800 rounded-lg px-4 py-3 mb-6 flex items-start gap-2 text-left">
+            <AlertCircle size={16} className="text-red-400 mt-0.5 shrink-0" />
+            <p className="text-sm text-red-300">{error}</p>
+          </div>
+        )}
 
         {!showConnect ? (
           <div className="flex flex-col gap-3 items-center">

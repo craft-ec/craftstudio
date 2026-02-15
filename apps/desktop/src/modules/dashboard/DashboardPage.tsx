@@ -13,7 +13,7 @@ import { useInstanceStore } from "../../store/instanceStore";
 import { useDaemon, useActiveConnection } from "../../hooks/useDaemon";
 import StatCard from "../../components/StatCard";
 import NetworkHealth from "../../components/NetworkHealth";
-import DaemonNodes from "../../components/DaemonNodes";
+// DaemonNodes removed — instance management is now via tab bar
 
 export default function DashboardPage() {
   const instance = useInstanceStore((s) =>
@@ -77,7 +77,6 @@ export default function DashboardPage() {
   return (
     <div className="max-w-4xl mx-auto">
       <NetworkHealth />
-      <DaemonNodes />
 
       <h1 className="text-2xl font-bold mb-6 flex items-center gap-2">
         <LayoutDashboard className="text-craftec-500" /> Dashboard
