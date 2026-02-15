@@ -371,6 +371,20 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
           msg = `Re-announced ${short(p.content_id)} to DHT`;
           break;
 
+        // Content status (full picture)
+        case "content_status": {
+          const stage = String(p.stage ?? "unknown");
+          const summary = String(p.summary ?? "");
+          const size = formatBytes(Number(p.size ?? 0));
+          const name = p.name ? String(p.name) : short(p.content_id);
+          msg = `📦 ${name} (${size}) [${stage}] — ${summary}`;
+          if (stage === "distributed") level = "success";
+          else if (stage === "degraded") level = "error";
+          else if (stage === "chunked") level = "warn";
+          category = "action";
+          break;
+        }
+
         // DHT results
         case "providers_resolved": {
           const count = Number(p.count ?? 0);
