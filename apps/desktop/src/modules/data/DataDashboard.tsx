@@ -2,6 +2,7 @@ import { Database, MonitorSmartphone, HardDrive, Layers } from "lucide-react";
 import { useActiveInstance } from "../../hooks/useActiveInstance";
 import DaemonOffline from "../../components/DaemonOffline";
 import Tabs, { TabDef } from "../../components/Tabs";
+import DataCraftActivity from "../../components/DataCraftActivity";
 import ClientTab from "./tabs/ClientTab";
 import StorageTab from "./tabs/StorageTab";
 import AggregatorTab from "./tabs/AggregatorTab";
@@ -34,6 +35,8 @@ export default function DataDashboard() {
           }
         }}
       </Tabs>
+
+      <DataCraftActivity />
     </div>
   );
 }

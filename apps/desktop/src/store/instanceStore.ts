@@ -14,10 +14,13 @@ function formatBytes(b: number): string {
   return `${b} B`;
 }
 
+export type ActivityCategory = "announcement" | "gossip" | "action" | "system";
+
 export interface ActivityEvent {
   time: number;
   message: string;
   level: "info" | "success" | "error" | "warn";
+  category: ActivityCategory;
 }
 
 interface InstanceState {
@@ -28,7 +31,7 @@ interface InstanceState {
   apiKeys: Record<string, string>;
 
   addInstance: (instance: InstanceConfig, opts?: { apiKey?: string }) => Promise<void>;
-  logActivity: (id: string, message: string, level?: ActivityEvent["level"]) => void;
+  logActivity: (id: string, message: string, level?: ActivityEvent["level"], category?: ActivityCategory) => void;
   removeInstance: (id: string) => void;
   setActive: (id: string | null) => void;
   updateInstance: (id: string, patch: Partial<InstanceConfig>) => Promise<void>;
@@ -52,11 +55,11 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
   activityLog: {},
   apiKeys: {},
 
-  logActivity: (id, message, level = "info") => {
+  logActivity: (id, message, level = "info", category = "system") => {
     set((s) => ({
       activityLog: {
         ...s.activityLog,
-        [id]: [...(s.activityLog[id] || []), { time: Date.now(), message, level }].slice(-50),
+        [id]: [...(s.activityLog[id] || []), { time: Date.now(), message, level, category }].slice(-100),
       },
     }));
   },
@@ -212,10 +215,10 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
     const client = createClient(id, wsUrl);
     client.onConnection((connected) => {
       if (connected) {
-        logActivity(id, "WebSocket connected — daemon online", "success");
+        logActivity(id, "WebSocket connected — daemon online", "success", "system");
         client.status().then((s) => {
           if (s) {
-            logActivity(id, `Node has ${s.content_count} content items, ${s.shard_count} shards (${formatBytes(s.stored_bytes)})`, "info");
+            logActivity(id, `Node has ${s.content_count} content items, ${s.shard_count} shards (${formatBytes(s.stored_bytes)})`, "info", "system");
           }
         }).catch(() => {});
         client.listPeers().then((peers) => {
@@ -223,14 +226,14 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
             const count = Object.keys(peers).length;
             const storage = Object.values(peers).filter(p => p.capabilities.includes("Storage")).length;
             if (count > 0) {
-              logActivity(id, `Connected to ${count} peers (${storage} storage nodes)`, "success");
+              logActivity(id, `Connected to ${count} peers (${storage} storage nodes)`, "success", "announcement");
             } else {
-              logActivity(id, "No peers found yet — DHT discovery in progress", "warn");
+              logActivity(id, "No peers found yet — DHT discovery in progress", "warn", "announcement");
             }
           }
         }).catch(() => {});
       } else {
-        logActivity(id, "Disconnected from daemon", "error");
+        logActivity(id, "Disconnected from daemon", "error", "system");
       }
       set((s) => ({
         connectionStatus: {
@@ -238,6 +241,30 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
           [id]: connected ? "connected" : "disconnected",
         },
       }));
+    });
+
+    // Subscribe to daemon server-push events and categorize them
+    client.onEvent((method, params) => {
+      const p = (params ?? {}) as Record<string, unknown>;
+      const msg = typeof p.message === "string" ? p.message : `${method}`;
+
+      let category: ActivityCategory = "system";
+      let level: ActivityEvent["level"] = "info";
+
+      if (method.startsWith("dht.") || method.startsWith("announce.") || method === "capability.announced" || method === "capability.expired") {
+        category = "announcement";
+      } else if (method.startsWith("gossip.") || method.startsWith("pdp.") || method.startsWith("receipt.") || method === "peer.joined" || method === "peer.left") {
+        category = "gossip";
+      } else if (method.startsWith("publish.") || method.startsWith("access.") || method.startsWith("channel.") || method.startsWith("settlement.") || method === "fetch.complete") {
+        category = "action";
+        if (method.includes("complete") || method.includes("granted") || method.includes("opened")) level = "success";
+        if (method.includes("failed") || method.includes("error")) level = "error";
+      }
+
+      if (method.includes("error") || method.includes("failed")) level = "error";
+      if (method.includes("warn")) level = "warn";
+
+      logActivity(id, msg, level, category);
     });
 
     client.start(instance.dataDir, apiKey);
