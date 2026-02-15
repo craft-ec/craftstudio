@@ -10,6 +10,17 @@ import { invoke } from "@tauri-apps/api/core";
 import NetworkHealth from "../../../components/NetworkHealth";
 import { usePeers } from "../../../hooks/usePeers";
 
+function ProviderCount({ cid }: { cid: string }) {
+  const [count, setCount] = useState<number | null>(null);
+  useEffect(() => {
+    if (!cid) return;
+    daemon.call<{ provider_count: number }>('data.providers', { cid }).then(r => setCount(r.provider_count)).catch(() => setCount(null));
+  }, [cid]);
+  if (count === null) return <span className="text-xs text-gray-500">—</span>;
+  if (count <= 1) return <span className="text-xs text-yellow-400">Local only</span>;
+  return <span className="text-xs text-green-400">{count} nodes</span>;
+}
+
 function formatBytes(bytes: number): string {
   if (bytes >= 1_000_000_000) return `${(bytes / 1_000_000_000).toFixed(1)} GB`;
   if (bytes >= 1_000_000) return `${(bytes / 1_000_000).toFixed(1)} MB`;
@@ -138,7 +149,7 @@ export default function ClientTab() {
             { key: "size", header: "Size", render: (item) => formatBytes(Number(item.size)) },
             { key: "encrypted", header: "Enc", render: (item) => item.encrypted ? <Lock size={14} className="text-craftec-400" /> : <Unlock size={14} className="text-gray-500" /> },
             { key: "shards", header: "Shards" },
-            { key: "distribution", header: "Distribution", render: () => <span className="text-xs text-gray-500">Local</span> },
+            { key: "distribution", header: "Distribution", render: (item) => <ProviderCount cid={String(item.cid)} /> },
             { key: "actions", header: "", render: (item) => (
               <button onClick={() => setShowAccess(String(item.cid))} className="text-xs text-craftec-400 hover:text-craftec-300">Access</button>
             )},
