@@ -78,7 +78,7 @@ function App() {
   return (
     <div className="flex flex-col h-screen bg-gray-950 text-gray-100">
       <InstanceTabBar onAddInstance={() => setShowAddModal(true)} />
-      <div className="flex flex-1 overflow-hidden">
+      <div key={activeId} className="flex flex-1 overflow-hidden">
         <Sidebar activePage={page} onNavigate={setPage} />
         <main className="flex-1 flex flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto p-6">
