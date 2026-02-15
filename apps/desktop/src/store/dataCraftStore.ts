@@ -40,12 +40,12 @@ export const useDataCraftStore = create<DataCraftState>((set) => ({
     set({ loading: true, error: null });
     try {
       const items = await daemon.listContent();
-      const content: ContentItem[] = (items || []).map((item) => ({
-        cid: item.cid,
-        name: item.name || item.cid.slice(0, 12),
-        size: item.size,
-        encrypted: false, // daemon doesn't expose this in list yet
-        shards: item.chunks,
+      const content: ContentItem[] = (items || []).map((item: Record<string, unknown>) => ({
+        cid: String(item.content_id || item.cid || ''),
+        name: String(item.name || (item.content_id || item.cid || '').toString().slice(0, 12)),
+        size: Number(item.total_size || item.size || 0),
+        encrypted: Boolean(item.encrypted),
+        shards: Number(item.chunk_count || item.chunks || 0),
         healthRatio: 1.0,
         poolBalance: 0,
         publishedAt: new Date().toISOString(),
