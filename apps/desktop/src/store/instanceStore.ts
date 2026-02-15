@@ -244,14 +244,6 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
     });
 
     // Subscribe to daemon server-push events and categorize them
-    // Event method names are snake_case DaemonEvent variants:
-    //   peer_connected, peer_disconnected, listening_on, daemon_started,
-    //   capability_announced, capability_published, provider_announced, content_reannounced,
-    //   storage_receipt_received, removal_notice_received,
-    //   content_published, access_granted, access_revoked, channel_opened, channel_closed,
-    //   pool_funded, removal_published, content_distributed,
-    //   providers_resolved, manifest_retrieved, dht_error,
-    //   challenger_round_completed, shard_requested
     client.onEvent((method, params) => {
       const p = (params ?? {}) as Record<string, unknown>;
 
@@ -259,40 +251,143 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
       let level: ActivityEvent["level"] = "info";
       let msg = method.replace(/_/g, " ");
 
-      // Announcements
+      // -- Categorize --
+      // Announcements / DHT
       if (["capability_announced", "capability_published", "provider_announced", "content_reannounced", "providers_resolved", "manifest_retrieved"].includes(method)) {
         category = "announcement";
       }
-      // Gossip
+      // Gossip / network
       else if (["storage_receipt_received", "removal_notice_received", "challenger_round_completed", "shard_requested", "peer_connected", "peer_disconnected", "peer_discovered"].includes(method)) {
         category = "gossip";
       }
-      // Actions
+      // User-initiated actions
       else if (["content_published", "content_distributed", "access_granted", "access_revoked", "channel_opened", "channel_closed", "pool_funded", "removal_published"].includes(method)) {
         category = "action";
       }
+      // Maintenance
+      else if (["maintenance_cycle_started", "maintenance_cycle_completed", "distribution_skipped", "discovery_status"].includes(method)) {
+        category = "system";
+      }
 
-      // Levels
-      if (["content_published", "access_granted", "channel_opened", "pool_funded", "peer_connected", "content_distributed", "provider_announced"].includes(method)) {
+      // -- Levels --
+      if (["content_published", "access_granted", "channel_opened", "pool_funded", "peer_connected", "content_distributed", "provider_announced", "maintenance_cycle_completed"].includes(method)) {
         level = "success";
       }
-      if (["dht_error"].includes(method) || method.includes("error")) level = "error";
+      if (["dht_error", "distribution_skipped"].includes(method) || method.includes("error")) level = "error";
       if (["peer_disconnected", "removal_notice_received"].includes(method)) level = "warn";
 
-      // Build descriptive messages
-      if (method === "peer_connected") msg = `Peer connected: ${p.peer_id ?? ""}`;
-      else if (method === "peer_disconnected") msg = `Peer disconnected: ${p.peer_id ?? ""}`;
-      else if (method === "capability_announced") msg = `Peer ${(p.peer_id as string)?.slice(0, 12) ?? ""}… capabilities: ${(p.capabilities as string[])?.join(", ") ?? ""}`;
-      else if (method === "content_published") msg = `Published content (${p.chunks ?? 0} chunks, ${formatBytes(Number(p.size ?? 0))})`;
-      else if (method === "content_distributed") msg = `Distributed ${p.shards_pushed ?? 0} shards for ${(p.content_id as string)?.slice(0, 12) ?? ""}…`;
-      else if (method === "provider_announced") msg = `Announced as provider for ${(p.content_id as string)?.slice(0, 12) ?? ""}…`;
-      else if (method === "providers_resolved") msg = `Found ${p.count ?? 0} providers for ${(p.content_id as string)?.slice(0, 12) ?? ""}…`;
-      else if (method === "dht_error") msg = `DHT error: ${p.error ?? "unknown"}`;
-      else if (method === "listening_on") msg = `Listening on ${p.address ?? ""}`;
-      else if (method === "daemon_started") msg = "Daemon started";
-      else if (method === "access_granted") msg = `Access granted to ${(p.recipient as string)?.slice(0, 12) ?? ""}…`;
-      else if (method === "channel_opened") msg = `Payment channel opened: ${(p.channel_id as string)?.slice(0, 12) ?? ""}…`;
-      else if (method === "storage_receipt_received") msg = `Storage receipt: ${(p.content_id as string)?.slice(0, 12) ?? ""}… from ${(p.storage_node as string)?.slice(0, 12) ?? ""}…`;
+      // -- Build descriptive messages --
+      const short = (s: unknown) => typeof s === "string" ? s.slice(0, 12) + "…" : "";
+
+      switch (method) {
+        // Startup
+        case "daemon_started":
+          msg = "Daemon started — initializing P2P network";
+          break;
+        case "listening_on":
+          msg = `Listening on ${p.address ?? ""}`;
+          break;
+        case "discovery_status":
+          msg = `Network: ${p.total_peers ?? 0} peers (${p.storage_peers ?? 0} storage) — ${p.action ?? ""}`;
+          break;
+
+        // Peers
+        case "peer_discovered":
+          msg = `mDNS: discovered peer ${short(p.peer_id)} at ${p.address ?? ""}`;
+          break;
+        case "peer_connected":
+          msg = `Connected to ${short(p.peer_id)} (${p.total_peers ?? "?"} peers total)`;
+          break;
+        case "peer_disconnected":
+          msg = `Disconnected from ${short(p.peer_id)} (${p.remaining_peers ?? "?"} peers remaining)`;
+          break;
+
+        // Capabilities
+        case "capability_announced": {
+          const caps = (p.capabilities as string[])?.join(", ") ?? "";
+          const committed = p.storage_committed ? ` — committed ${formatBytes(Number(p.storage_committed))}` : "";
+          const used = p.storage_used ? `, used ${formatBytes(Number(p.storage_used))}` : "";
+          msg = `Peer ${short(p.peer_id)} capabilities: [${caps}]${committed}${used}`;
+          break;
+        }
+        case "capability_published":
+          msg = `Published own capabilities: ${(p.capabilities as string[])?.join(", ") ?? ""}`;
+          break;
+
+        // Content operations
+        case "content_published":
+          msg = `Published content: ${formatBytes(Number(p.size ?? 0))} — ${p.chunks ?? 0} chunks × ${p.shards ?? "?"} shards`;
+          break;
+        case "provider_announced":
+          msg = `DHT announce complete for ${short(p.content_id)}`;
+          break;
+        case "content_reannounced":
+          msg = `Re-announced ${short(p.content_id)} to DHT`;
+          break;
+
+        // DHT results
+        case "providers_resolved":
+          msg = `Found ${p.count ?? 0} providers for ${short(p.content_id)}`;
+          break;
+        case "manifest_retrieved":
+          msg = `Retrieved manifest for ${short(p.content_id)} (${p.chunks ?? 0} chunks)`;
+          break;
+        case "dht_error":
+          msg = `DHT error for ${short(p.content_id)}: ${p.error ?? "unknown"} — ${p.next_action ?? ""}`;
+          level = "error";
+          break;
+
+        // Distribution
+        case "content_distributed":
+          msg = `Distributed ${p.shards_pushed ?? 0}/${p.total_shards ?? "?"} shards for ${short(p.content_id)} to ${p.target_peers ?? "?"} peers`;
+          break;
+        case "distribution_skipped":
+          msg = `Distribution skipped: ${p.reason ?? "unknown"} — will retry in ${p.retry_secs ?? "?"}s`;
+          level = "warn";
+          break;
+
+        // Maintenance
+        case "maintenance_cycle_started":
+          msg = `Maintenance cycle: ${p.content_count ?? 0} items (${p.needs_announce ?? 0} announce, ${p.needs_distribute ?? 0} distribute)`;
+          break;
+        case "maintenance_cycle_completed":
+          msg = `Maintenance complete — announced ${p.announced ?? 0}, distributed ${p.distributed ?? 0}`;
+          break;
+
+        // Gossip
+        case "storage_receipt_received":
+          msg = `Storage receipt: ${short(p.content_id)} from ${short(p.storage_node)}`;
+          break;
+        case "removal_notice_received":
+          msg = `Removal notice for ${short(p.content_id)} from ${short(p.creator)} (${p.valid ? "valid" : "INVALID"})`;
+          break;
+        case "shard_requested":
+          msg = `Shard requested: ${short(p.content_id)} chunk ${p.chunk ?? "?"} shard ${p.shard ?? "?"} by ${short(p.peer_id)}`;
+          break;
+        case "challenger_round_completed":
+          msg = `PDP challenger completed ${p.rounds ?? 0} rounds`;
+          break;
+
+        // Access & payments
+        case "access_granted":
+          msg = `Access granted to ${short(p.recipient)} for ${short(p.content_id)}`;
+          break;
+        case "access_revoked":
+          msg = `Access revoked for ${short(p.recipient)} on ${short(p.content_id)}`;
+          break;
+        case "channel_opened":
+          msg = `Payment channel opened: ${short(p.channel_id)} with ${short(p.receiver)}`;
+          break;
+        case "channel_closed":
+          msg = `Payment channel closed: ${short(p.channel_id)}`;
+          break;
+        case "pool_funded":
+          msg = `Pool funded: ${p.amount ?? 0} for ${short(p.creator)}`;
+          break;
+        case "removal_published":
+          msg = `Content removed: ${short(p.content_id)}`;
+          break;
+      }
 
       logActivity(id, msg, level, category);
     });
