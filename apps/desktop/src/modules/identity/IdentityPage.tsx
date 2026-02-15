@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { User, Copy, CheckCircle } from "lucide-react";
 import { useIdentityStore } from "../../store/identityStore";
+import { useActiveInstance } from "../../hooks/useActiveInstance";
 import { useConfigStore } from "../../store/configStore";
 import { invoke } from "@tauri-apps/api/core";
 import { useState } from "react";
@@ -8,7 +9,8 @@ import { useState } from "react";
 export default function IdentityPage() {
   const { did } = useIdentityStore();
   const setDid = useIdentityStore((s) => s.setDid);
-  const keypairPath = useConfigStore((s) => s.config.identity.keypairPath);
+  const instance = useActiveInstance();
+  const keypairPath = instance?.keypairPath ?? "";
   const cluster = useConfigStore((s) => s.config.solana.cluster);
   const [copied, setCopied] = useState(false);
 
@@ -61,7 +63,7 @@ export default function IdentityPage() {
 
         <div className="bg-gray-900 rounded-xl p-6">
           <p className="text-sm text-gray-400 mb-1">Keypair Path</p>
-          <p className="font-mono text-sm text-gray-300">{keypairPath}</p>
+          <p className="font-mono text-sm text-gray-300">{keypairPath || "No instance selected"}</p>
         </div>
 
         <div className="bg-gray-900 rounded-xl p-6">

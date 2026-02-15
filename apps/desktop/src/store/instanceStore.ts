@@ -1,26 +1,22 @@
 import { create } from "zustand";
 import { createClient, getClient, destroyClient } from "../services/daemon";
 import type { DaemonClient } from "../services/daemon";
-
-export interface DaemonInstance {
-  id: string;
-  name: string;
-  url: string;
-  autoStart: boolean;
-  capabilities: { client: boolean; storage: boolean; aggregator: boolean };
-}
+import type { InstanceConfig } from "../types/config";
+import { useConfigStore } from "./configStore";
 
 interface InstanceState {
-  instances: DaemonInstance[];
+  instances: InstanceConfig[];
   activeId: string | null;
   connectionStatus: Record<string, "connected" | "disconnected" | "connecting">;
 
-  addInstance: (instance: DaemonInstance) => void;
+  addInstance: (instance: InstanceConfig) => void;
   removeInstance: (id: string) => void;
   setActive: (id: string | null) => void;
-  updateInstance: (id: string, patch: Partial<DaemonInstance>) => void;
+  updateInstance: (id: string, patch: Partial<InstanceConfig>) => void;
   initClient: (id: string) => void;
   getActiveClient: () => DaemonClient | undefined;
+  loadFromConfig: () => void;
+  persistToConfig: () => void;
 }
 
 function generateId(): string {
@@ -41,6 +37,8 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
     }));
     // Create and init client
     get().initClient(instance.id);
+    // Persist to config
+    get().persistToConfig();
   },
 
   removeInstance: (id) => {
@@ -55,14 +53,19 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
         connectionStatus: status,
       };
     });
+    get().persistToConfig();
   },
 
-  setActive: (id) => set({ activeId: id }),
+  setActive: (id) => {
+    set({ activeId: id });
+    get().persistToConfig();
+  },
 
   updateInstance: (id, patch) => {
     set((s) => ({
       instances: s.instances.map((i) => (i.id === id ? { ...i, ...patch } : i)),
     }));
+    get().persistToConfig();
   },
 
   initClient: (id) => {
@@ -89,5 +92,29 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
     const { activeId } = get();
     if (!activeId) return undefined;
     return getClient(activeId);
+  },
+
+  /** Load instances from persisted config */
+  loadFromConfig: () => {
+    const config = useConfigStore.getState().config;
+    if (config.instances.length > 0) {
+      set({
+        instances: config.instances,
+        activeId: config.activeInstanceId ?? config.instances[0]?.id ?? null,
+      });
+      // Init clients for all instances
+      for (const inst of config.instances) {
+        get().initClient(inst.id);
+      }
+    }
+  },
+
+  /** Persist current instances to config file */
+  persistToConfig: () => {
+    const { instances, activeId } = get();
+    useConfigStore.getState().update({
+      instances,
+      activeInstanceId: activeId,
+    });
   },
 }));

@@ -1,15 +1,31 @@
 import { useState } from "react";
 import { Play, Globe, Server, AlertCircle } from "lucide-react";
 import { useInstanceStore, generateId } from "../store/instanceStore";
+import { DEFAULT_INSTANCE } from "../types/config";
 import { invoke } from "@tauri-apps/api/core";
 
+/** Derive unique per-instance paths based on index */
+function makeInstanceConfig(index: number, overrides: { name: string; url: string; autoStart: boolean }) {
+  const suffix = index === 0 ? "" : `-${index}`;
+  return {
+    id: generateId(),
+    ...DEFAULT_INSTANCE,
+    keypairPath: `~/.craftstudio/instances${suffix}/identity.json`,
+    storagePath: `~/.craftstudio/instances${suffix}/storage`,
+    port: 4001 + index,
+    ...overrides,
+  };
+}
+
 export default function EmptyState() {
-  const addInstance = useInstanceStore((s) => s.addInstance);
+  const { addInstance, instances } = useInstanceStore();
   const [showConnect, setShowConnect] = useState(false);
   const [remoteUrl, setRemoteUrl] = useState("ws://127.0.0.1:9091");
   const [remoteName, setRemoteName] = useState("");
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const nextIndex = instances.length;
 
   const startLocal = async () => {
     setStarting(true);
@@ -24,13 +40,11 @@ export default function EmptyState() {
           binary_path: null,
         },
       });
-      addInstance({
-        id: generateId(),
+      addInstance(makeInstanceConfig(nextIndex, {
         name: `Local Node (:${result.ws_port})`,
         url: `ws://127.0.0.1:${result.ws_port}`,
         autoStart: true,
-        capabilities: { client: true, storage: false, aggregator: false },
-      });
+      }));
     } catch (e) {
       const msg = String(e);
       console.error("Failed to start daemon:", msg);
@@ -46,13 +60,11 @@ export default function EmptyState() {
 
   const connectRemote = () => {
     if (!remoteUrl.trim()) return;
-    addInstance({
-      id: generateId(),
+    addInstance(makeInstanceConfig(nextIndex, {
       name: remoteName.trim() || remoteUrl.replace(/^wss?:\/\//, ""),
       url: remoteUrl.trim(),
       autoStart: false,
-      capabilities: { client: true, storage: false, aggregator: false },
-    });
+    }));
     setShowConnect(false);
     setRemoteUrl("ws://127.0.0.1:9091");
     setRemoteName("");

@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { Globe, Activity, Users, Clock, Zap, DollarSign } from "lucide-react";
 import { useDaemon, useActiveConnection } from "../../hooks/useDaemon";
-import { useConfigStore } from "../../store/configStore";
+import { useActiveInstance } from "../../hooks/useActiveInstance";
+import { useInstanceStore } from "../../store/instanceStore";
 import StatCard from "../../components/StatCard";
 import DaemonOffline from "../../components/DaemonOffline";
 import NetworkHealth from "../../components/NetworkHealth";
@@ -22,11 +23,13 @@ interface ChannelSummary {
 export default function NetworkPage() {
   const { connected } = useActiveConnection();
   const client = useDaemon();
-  const { config, updateSection } = useConfigStore();
+  const instance = useActiveInstance();
+  const updateInstance = useInstanceStore((s) => s.updateInstance);
+  const caps = instance?.capabilities ?? { client: false, storage: false, aggregator: false };
   const capabilities: Capability[] = [
-    { key: "client", label: "Client", enabled: config.node.capabilities.client },
-    { key: "storage", label: "Storage", enabled: config.node.capabilities.storage },
-    { key: "aggregator", label: "Aggregator", enabled: config.node.capabilities.aggregator },
+    { key: "client", label: "Client", enabled: caps.client },
+    { key: "storage", label: "Storage", enabled: caps.storage },
+    { key: "aggregator", label: "Aggregator", enabled: caps.aggregator },
   ];
   const peerStats = usePeers();
   const [peers, setPeers] = useState<Record<string, { capabilities: string[]; last_seen: number }>>({});
@@ -60,9 +63,10 @@ export default function NetworkPage() {
   useEffect(() => { loadNodeData(); }, [loadNodeData]);
 
   const toggle = (key: string) => {
-    const caps = { ...config.node.capabilities };
-    caps[key as keyof typeof caps] = !caps[key as keyof typeof caps];
-    updateSection("node", { capabilities: caps });
+    if (!instance) return;
+    const newCaps = { ...instance.capabilities };
+    newCaps[key as keyof typeof newCaps] = !newCaps[key as keyof typeof newCaps];
+    updateInstance(instance.id, { capabilities: newCaps });
   };
 
   const peerCount = Object.keys(peers).length;

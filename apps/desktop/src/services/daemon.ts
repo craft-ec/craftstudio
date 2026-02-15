@@ -8,7 +8,6 @@
  */
 
 import { invoke } from '@tauri-apps/api/core';
-import { getConfig } from "./config";
 
 const RECONNECT_MS = 3_000;
 const REQUEST_TIMEOUT_MS = 30_000;
@@ -43,15 +42,11 @@ class DaemonClient {
   }
 
   constructor(url?: string) {
-    // Read from cached config if available, otherwise use default
-    const cfg = getConfig();
-    this._url = url ?? `${cfg.daemons.datacraft.url}/ws`;
+    this._url = url ?? 'ws://127.0.0.1:9091/ws';
   }
 
   /** Initialize connection. Called after config is loaded. */
   async init() {
-    const cfg = getConfig();
-    this._url = `${cfg.daemons.datacraft.url}/ws`;
     await this.loadApiKey();
     this.connect();
   }

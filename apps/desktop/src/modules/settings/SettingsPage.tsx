@@ -3,17 +3,19 @@ import type { LucideIcon } from 'lucide-react';
 import {
   Settings,
   Globe,
-  Key,
-  Database,
-  Shield,
   Monitor,
   RotateCcw,
   Save,
   Check,
   Loader2,
+  Server,
+  Key,
+  Database,
 } from 'lucide-react';
 import { useConfigStore } from '../../store/configStore';
-import { CraftStudioConfig } from '../../types/config';
+import { useInstanceStore } from '../../store/instanceStore';
+import { useActiveInstance } from '../../hooks/useActiveInstance';
+import { CraftStudioConfig, InstanceConfig } from '../../types/config';
 
 /* ─── tiny helpers ─── */
 function Toggle({
@@ -169,8 +171,10 @@ function Slider({
 export default function SettingsPage() {
   const { config, loaded, saving, load, reset } = useConfigStore();
   const updateStore = useConfigStore((s) => s.update);
+  const instance = useActiveInstance();
+  const updateInstance = useInstanceStore((s) => s.updateInstance);
 
-  // Local draft state so we can batch changes and save
+  // Local draft state for global settings
   const [draft, setDraft] = useState<CraftStudioConfig>(config);
   const [dirty, setDirty] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -204,6 +208,12 @@ export default function SettingsPage() {
   const handleReset = async () => {
     await reset();
     setSaved(false);
+  };
+
+  // Instance field updater — persists immediately via instanceStore
+  const patchInstance = (fields: Partial<InstanceConfig>) => {
+    if (!instance) return;
+    updateInstance(instance.id, fields);
   };
 
   if (!loaded) {
@@ -251,7 +261,7 @@ export default function SettingsPage() {
       </div>
 
       <div className="space-y-4">
-        {/* ── Network / Solana ── */}
+        {/* ── Global: Network / Solana ── */}
         <Section icon={Globe} title="Network">
           <Select
             label="Solana Cluster"
@@ -285,113 +295,7 @@ export default function SettingsPage() {
           />
         </Section>
 
-        {/* ── Identity ── */}
-        <Section icon={Key} title="Identity">
-          <Input
-            label="Keypair Path"
-            value={draft.identity.keypairPath}
-            onChange={(v) => patch((d) => { d.identity.keypairPath = v; })}
-            mono
-          />
-          <div className="flex gap-2 pt-1">
-            <button className="px-3 py-1.5 text-xs rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition-colors">
-              Export Keypair
-            </button>
-            <button className="px-3 py-1.5 text-xs rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition-colors">
-              Import Keypair
-            </button>
-          </div>
-        </Section>
-
-        {/* ── DataCraft Daemon ── */}
-        <Section icon={Database} title="DataCraft">
-          <Input
-            label="Daemon URL"
-            value={draft.daemons.datacraft.url}
-            onChange={(v) => patch((d) => { d.daemons.datacraft.url = v; })}
-            placeholder="ws://127.0.0.1:9091"
-            mono
-          />
-          <Toggle
-            label="Auto-connect on startup"
-            checked={draft.daemons.datacraft.autoConnect}
-            onChange={(v) => patch((d) => { d.daemons.datacraft.autoConnect = v; })}
-          />
-          <Input
-            label="Storage Path"
-            value={draft.node.storagePath}
-            onChange={(v) => patch((d) => { d.node.storagePath = v; })}
-            mono
-          />
-          <Slider
-            label="Max Storage"
-            value={draft.node.maxStorageGB}
-            onChange={(v) => patch((d) => { d.node.maxStorageGB = v; })}
-            min={1}
-            max={500}
-            step={1}
-            unit="GB"
-          />
-        </Section>
-
-        {/* ── TunnelCraft Daemon ── */}
-        <Section icon={Shield} title="TunnelCraft">
-          <Input
-            label="Daemon URL"
-            value={draft.daemons.tunnelcraft.url}
-            onChange={(v) => patch((d) => { d.daemons.tunnelcraft.url = v; })}
-            placeholder="ws://127.0.0.1:9092"
-            mono
-          />
-          <Toggle
-            label="Auto-connect on startup"
-            checked={draft.daemons.tunnelcraft.autoConnect}
-            onChange={(v) => patch((d) => { d.daemons.tunnelcraft.autoConnect = v; })}
-          />
-        </Section>
-
-        {/* ── Node ── */}
-        <Section icon={Monitor} title="Node">
-          <div className="space-y-2">
-            <span className="text-sm text-gray-400">Capabilities</span>
-            <Toggle
-              label="Client"
-              checked={draft.node.capabilities.client}
-              onChange={(v) => patch((d) => { d.node.capabilities.client = v; })}
-            />
-            <Toggle
-              label="Storage Node"
-              checked={draft.node.capabilities.storage}
-              onChange={(v) => patch((d) => { d.node.capabilities.storage = v; })}
-            />
-            <Toggle
-              label="Aggregator"
-              checked={draft.node.capabilities.aggregator}
-              onChange={(v) => patch((d) => { d.node.capabilities.aggregator = v; })}
-            />
-          </div>
-          <Input
-            label="Listen Port"
-            value={String(draft.node.port)}
-            onChange={(v) => {
-              const n = parseInt(v, 10);
-              if (!isNaN(n) && n > 0 && n < 65536) patch((d) => { d.node.port = n; });
-            }}
-            type="number"
-          />
-          <Input
-            label="Bandwidth Limit (Mbps, optional)"
-            value={draft.node.bandwidthLimitMbps != null ? String(draft.node.bandwidthLimitMbps) : ''}
-            onChange={(v) => {
-              const n = parseInt(v, 10);
-              patch((d) => { d.node.bandwidthLimitMbps = isNaN(n) ? undefined : n; });
-            }}
-            placeholder="Unlimited"
-            type="number"
-          />
-        </Section>
-
-        {/* ── UI ── */}
+        {/* ── Global: UI ── */}
         <Section icon={Monitor} title="Interface">
           <Select
             label="Theme"
@@ -419,6 +323,114 @@ export default function SettingsPage() {
             onChange={(v) => patch((d) => { d.ui.launchOnStartup = v; })}
           />
         </Section>
+
+        {/* ── Per-Instance Settings ── */}
+        {instance ? (
+          <>
+            <div className="border-t border-gray-800 pt-2">
+              <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">
+                Instance: {instance.name}
+              </p>
+            </div>
+
+            <Section icon={Server} title="Instance">
+              <Input
+                label="Name"
+                value={instance.name}
+                onChange={(v) => patchInstance({ name: v })}
+              />
+              <Input
+                label="Daemon URL"
+                value={instance.url}
+                onChange={(v) => patchInstance({ url: v })}
+                placeholder="ws://127.0.0.1:9091"
+                mono
+              />
+              <Input
+                label="Listen Port"
+                value={String(instance.port)}
+                onChange={(v) => {
+                  const n = parseInt(v, 10);
+                  if (!isNaN(n) && n > 0 && n < 65536) patchInstance({ port: n });
+                }}
+                type="number"
+              />
+              <Toggle
+                label="Auto-start on launch"
+                checked={instance.autoStart}
+                onChange={(v) => patchInstance({ autoStart: v })}
+              />
+            </Section>
+
+            <Section icon={Key} title="Identity">
+              <Input
+                label="Keypair Path"
+                value={instance.keypairPath}
+                onChange={(v) => patchInstance({ keypairPath: v })}
+                mono
+              />
+              <div className="flex gap-2 pt-1">
+                <button className="px-3 py-1.5 text-xs rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition-colors">
+                  Export Keypair
+                </button>
+                <button className="px-3 py-1.5 text-xs rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition-colors">
+                  Import Keypair
+                </button>
+              </div>
+            </Section>
+
+            <Section icon={Database} title="Node">
+              <div className="space-y-2">
+                <span className="text-sm text-gray-400">Capabilities</span>
+                <Toggle
+                  label="Client"
+                  checked={instance.capabilities.client}
+                  onChange={(v) => patchInstance({ capabilities: { ...instance.capabilities, client: v } })}
+                />
+                <Toggle
+                  label="Storage Node"
+                  checked={instance.capabilities.storage}
+                  onChange={(v) => patchInstance({ capabilities: { ...instance.capabilities, storage: v } })}
+                />
+                <Toggle
+                  label="Aggregator"
+                  checked={instance.capabilities.aggregator}
+                  onChange={(v) => patchInstance({ capabilities: { ...instance.capabilities, aggregator: v } })}
+                />
+              </div>
+              <Input
+                label="Storage Path"
+                value={instance.storagePath}
+                onChange={(v) => patchInstance({ storagePath: v })}
+                mono
+              />
+              <Slider
+                label="Max Storage"
+                value={instance.maxStorageGB}
+                onChange={(v) => patchInstance({ maxStorageGB: v })}
+                min={1}
+                max={500}
+                step={1}
+                unit="GB"
+              />
+              <Input
+                label="Bandwidth Limit (Mbps, optional)"
+                value={instance.bandwidthLimitMbps != null ? String(instance.bandwidthLimitMbps) : ''}
+                onChange={(v) => {
+                  const n = parseInt(v, 10);
+                  patchInstance({ bandwidthLimitMbps: isNaN(n) ? undefined : n });
+                }}
+                placeholder="Unlimited"
+                type="number"
+              />
+            </Section>
+
+          </>
+        ) : (
+          <div className="bg-gray-900 rounded-xl p-5 text-center text-gray-500 text-sm">
+            No active instance selected. Create or select an instance to configure per-instance settings.
+          </div>
+        )}
       </div>
     </div>
   );

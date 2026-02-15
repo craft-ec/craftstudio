@@ -1,5 +1,5 @@
 import { Database, MonitorSmartphone, HardDrive, Layers } from "lucide-react";
-import { useConfigStore } from "../../store/configStore";
+import { useActiveInstance } from "../../hooks/useActiveInstance";
 import DaemonOffline from "../../components/DaemonOffline";
 import Tabs, { TabDef } from "../../components/Tabs";
 import ClientTab from "./tabs/ClientTab";
@@ -7,8 +7,8 @@ import StorageTab from "./tabs/StorageTab";
 import AggregatorTab from "./tabs/AggregatorTab";
 
 export default function DataDashboard() {
-  const { config } = useConfigStore();
-  const caps = config.node.capabilities;
+  const instance = useActiveInstance();
+  const caps = instance?.capabilities ?? { client: false, storage: false, aggregator: false };
 
   const tabs: TabDef[] = [
     { key: "client", label: "Client", icon: <MonitorSmartphone size={16} /> },
