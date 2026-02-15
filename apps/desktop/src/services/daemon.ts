@@ -8,7 +8,7 @@
  */
 
 import { invoke } from '@tauri-apps/api/core';
-import type { DaemonConfig } from '../types/config';
+import type { InstanceConfig } from '../types/config';
 
 const RECONNECT_MS = 3_000;
 const REQUEST_TIMEOUT_MS = 30_000;
@@ -352,10 +352,10 @@ class DaemonClient {
 
   // Daemon config
   getDaemonConfig() {
-    return this.call<DaemonConfig>('get-config');
+    return this.call<Partial<InstanceConfig>>('get-config');
   }
 
-  setDaemonConfig(patch: Partial<DaemonConfig>) {
+  setDaemonConfig(patch: Partial<InstanceConfig>) {
     return this.call('set-config', { config: JSON.stringify(patch) });
   }
 

@@ -5,7 +5,7 @@
  */
 
 import { invoke } from '@tauri-apps/api/core';
-import { CraftStudioConfig, DEFAULT_CONFIG, DaemonConfig, DEFAULT_DAEMON_CONFIG, CONFIG_SCHEMA_VERSION } from '../types/config';
+import { CraftStudioConfig, DEFAULT_CONFIG, InstanceConfig, DEFAULT_INSTANCE_CONFIG, CONFIG_SCHEMA_VERSION } from '../types/config';
 
 let cached: CraftStudioConfig | null = null;
 
@@ -64,24 +64,24 @@ export async function getDefaultConfig(): Promise<CraftStudioConfig> {
 
 // ── Daemon Config (per data dir) ────────────────────────────
 
-/** Read daemon config from a data directory via Tauri backend. */
-export async function readDaemonConfig(dataDir: string): Promise<DaemonConfig> {
+/** Read instance config from a data directory via Tauri backend. */
+export async function readInstanceConfig(dataDir: string): Promise<InstanceConfig> {
   try {
     const raw = await invoke<string>('read_daemon_config', { dataDir });
-    const parsed = JSON.parse(raw) as Partial<DaemonConfig>;
-    return { ...structuredClone(DEFAULT_DAEMON_CONFIG), ...parsed };
+    const parsed = JSON.parse(raw) as Partial<InstanceConfig>;
+    return { ...structuredClone(DEFAULT_INSTANCE_CONFIG), ...parsed };
   } catch (err) {
-    console.warn('[config] Failed to read daemon config from', dataDir, err);
-    return structuredClone(DEFAULT_DAEMON_CONFIG);
+    console.warn('[config] Failed to read instance config from', dataDir, err);
+    return structuredClone(DEFAULT_INSTANCE_CONFIG);
   }
 }
 
-/** Write daemon config to a data directory via Tauri backend. */
-export async function writeDaemonConfig(dataDir: string, config: DaemonConfig): Promise<void> {
+/** Write instance config to a data directory via Tauri backend. */
+export async function writeInstanceConfig(dataDir: string, config: InstanceConfig): Promise<void> {
   try {
     await invoke('write_daemon_config', { dataDir, config: JSON.stringify(config) });
   } catch (err) {
-    console.error('[config] Failed to write daemon config to', dataDir, err);
+    console.error('[config] Failed to write instance config to', dataDir, err);
   }
 }
 

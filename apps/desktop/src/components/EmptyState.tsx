@@ -20,8 +20,6 @@ export default function EmptyState() {
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-
-  // Scan for existing local daemon configs on mount
   useEffect(() => {
     (async () => {
       try {
@@ -51,9 +49,9 @@ export default function EmptyState() {
       });
       const inst = makeInstanceConfig({
         name: `Local Node (:${result.ws_port})`,
-        url: `ws://127.0.0.1:${result.ws_port}`,
         autoStart: true,
         dataDir: result.data_dir,
+        ws_port: result.ws_port,
       });
       logActivity(inst.id, `Daemon started (PID ${result.pid}, port ${result.ws_port})`, "success");
       logActivity(inst.id, `Data directory: ${result.data_dir}`);
@@ -74,7 +72,6 @@ export default function EmptyState() {
     const port = config.ws_port ?? 9091;
     setError(null);
     try {
-      // Start the daemon with this data dir
       const result = await invoke<{ pid: number; ws_port: number; data_dir: string }>("start_datacraft_daemon", {
         config: {
           data_dir: config.data_dir,
@@ -87,19 +84,18 @@ export default function EmptyState() {
       });
       addInstance(makeInstanceConfig({
         name: config.name,
-        url: `ws://127.0.0.1:${result.ws_port}`,
         autoStart: true,
         dataDir: result.data_dir,
+        ws_port: result.ws_port,
       }));
     } catch (e) {
       const msg = String(e);
-      // If daemon is already running on that port, just connect
       if (msg.includes("already running")) {
         addInstance(makeInstanceConfig({
           name: config.name,
-          url: `ws://127.0.0.1:${port}`,
           autoStart: false,
           dataDir: config.data_dir,
+          ws_port: port,
         }));
       } else {
         setError(msg);
@@ -123,7 +119,6 @@ export default function EmptyState() {
           </div>
         )}
 
-        {/* Start New */}
         <button
           onClick={startLocal}
           disabled={starting}
@@ -136,7 +131,6 @@ export default function EmptyState() {
           </div>
         </button>
 
-        {/* Existing Configs */}
         {scanning ? (
           <p className="text-sm text-gray-500 animate-pulse">Scanning for existing configs...</p>
         ) : localConfigs.length > 0 ? (

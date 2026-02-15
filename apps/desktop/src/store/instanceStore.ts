@@ -1,5 +1,11 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
+import { createClient, getClient, destroyClient } from "../services/daemon";
+import type { DaemonClient } from "../services/daemon";
+import type { InstanceConfig, InstanceRef } from "../types/config";
+import { RESTART_REQUIRED_FIELDS } from "../types/config";
+import { readInstanceConfig, writeInstanceConfig } from "../services/config";
+import { useConfigStore } from "./configStore";
 
 function formatBytes(b: number): string {
   if (b >= 1e9) return `${(b / 1e9).toFixed(1)} GB`;
@@ -7,12 +13,6 @@ function formatBytes(b: number): string {
   if (b >= 1e3) return `${(b / 1e3).toFixed(1)} KB`;
   return `${b} B`;
 }
-import { createClient, getClient, destroyClient } from "../services/daemon";
-import type { DaemonClient } from "../services/daemon";
-import type { InstanceConfig, DaemonConfig } from "../types/config";
-import { DEFAULT_DAEMON_CONFIG, capabilitiesToArray } from "../types/config";
-import { writeDaemonConfig, readDaemonConfig } from "../services/config";
-import { useConfigStore } from "./configStore";
 
 export interface ActivityEvent {
   time: number;
@@ -25,7 +25,6 @@ interface InstanceState {
   activeId: string | null;
   connectionStatus: Record<string, "connected" | "disconnected" | "connecting">;
   activityLog: Record<string, ActivityEvent[]>;
-  dataDirs: Record<string, string>;
   apiKeys: Record<string, string>;
 
   addInstance: (instance: InstanceConfig, opts?: { apiKey?: string }) => void;
@@ -34,7 +33,6 @@ interface InstanceState {
   setActive: (id: string | null) => void;
   updateInstance: (id: string, patch: Partial<InstanceConfig>) => void;
   restartInstance: (id: string) => Promise<void>;
-  setDataDir: (id: string, dataDir: string) => void;
   initClient: (id: string) => void;
   getActiveClient: () => DaemonClient | undefined;
   loadFromConfig: () => Promise<void>;
@@ -47,49 +45,11 @@ function generateId(): string {
 
 export { generateId };
 
-/** Sync instance UI state FROM daemon config file (daemon config is source of truth) */
-async function syncInstanceFromDaemonConfig(instance: InstanceConfig): Promise<Partial<InstanceConfig> | null> {
-  if (!instance.dataDir) return null;
-  try {
-    const daemonCfg = await readDaemonConfig(instance.dataDir);
-    const patch: Partial<InstanceConfig> = {};
-    // Sync capabilities
-    const caps = {
-      client: daemonCfg.capabilities.includes('client'),
-      storage: daemonCfg.capabilities.includes('storage'),
-      aggregator: daemonCfg.capabilities.includes('aggregator'),
-    };
-    if (JSON.stringify(caps) !== JSON.stringify(instance.capabilities)) {
-      patch.capabilities = caps;
-    }
-    // Sync listen port
-    if (daemonCfg.listen_port && daemonCfg.listen_port !== instance.port) {
-      patch.port = daemonCfg.listen_port;
-    }
-    // Sync max storage
-    const maxGB = Math.round(daemonCfg.max_storage_bytes / 1e9);
-    if (maxGB > 0 && maxGB !== instance.maxStorageGB) {
-      patch.maxStorageGB = maxGB;
-    }
-    // Sync ws_port into URL if different
-    if (daemonCfg.ws_port) {
-      const expectedUrl = `ws://127.0.0.1:${daemonCfg.ws_port}`;
-      if (instance.url !== expectedUrl) {
-        patch.url = expectedUrl;
-      }
-    }
-    return Object.keys(patch).length > 0 ? patch : null;
-  } catch {
-    return null;
-  }
-}
-
 export const useInstanceStore = create<InstanceState>((set, get) => ({
   instances: [],
   activeId: null,
   connectionStatus: {},
   activityLog: {},
-  dataDirs: {},
   apiKeys: {},
 
   logActivity: (id, message, level = "info") => {
@@ -109,30 +69,16 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
       ...(apiKey ? { apiKeys: { ...s.apiKeys, [instance.id]: apiKey } } : {}),
     }));
 
-    // Write initial daemon config only if one doesn't exist yet
+    // Write instance config to {dataDir}/config.json
     if (instance.dataDir) {
-      readDaemonConfig(instance.dataDir).then((existing) => {
-        // If we got back defaults (no file), write initial config
-        if (existing.ws_port === DEFAULT_DAEMON_CONFIG.ws_port && existing.listen_port === DEFAULT_DAEMON_CONFIG.listen_port) {
-          const caps = capabilitiesToArray(instance.capabilities);
-          const port = parseInt(instance.url.match(/:(\d+)/)?.[1] ?? "9091");
-          const initial: DaemonConfig = {
-            ...structuredClone(DEFAULT_DAEMON_CONFIG),
-            capabilities: caps,
-            ws_port: port,
-            listen_port: instance.port,
-            max_storage_bytes: instance.maxStorageGB * 1e9,
-          };
-          writeDaemonConfig(instance.dataDir, initial).catch((e) =>
-            console.error("[instanceStore] Failed to write initial daemon config:", e)
-          );
-        }
-      }).catch(() => {});
+      writeInstanceConfig(instance.dataDir, instance).catch((e) =>
+        console.error("[instanceStore] Failed to write instance config:", e)
+      );
     }
 
     // Create and init client
     get().initClient(instance.id);
-    // Persist to config
+    // Persist global config (just the ref)
     get().persistToConfig();
   },
 
@@ -142,13 +88,10 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
       const instances = s.instances.filter((i) => i.id !== id);
       const status = { ...s.connectionStatus };
       delete status[id];
-      const dirs = { ...s.dataDirs };
-      delete dirs[id];
       return {
         instances,
         activeId: s.activeId === id ? (instances[0]?.id ?? null) : s.activeId,
         connectionStatus: status,
-        dataDirs: dirs,
       };
     });
     get().persistToConfig();
@@ -160,47 +103,34 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
   },
 
   updateInstance: (id, patch) => {
-    const hadCapabilityChange = patch.capabilities !== undefined;
-    const hadRestartField = hadCapabilityChange || patch.port !== undefined || patch.url !== undefined;
+    const needsRestart = RESTART_REQUIRED_FIELDS.some((f) => f in patch);
 
     set((s) => ({
       instances: s.instances.map((i) => (i.id === id ? { ...i, ...patch } : i)),
     }));
-    get().persistToConfig();
 
-    // Update daemon config file — only write the fields that changed
+    // Write full updated config to {dataDir}/config.json
     const instance = get().instances.find((i) => i.id === id);
     if (instance?.dataDir) {
-      readDaemonConfig(instance.dataDir).then((existing) => {
-        const daemonPatch: Partial<DaemonConfig> = {};
-        if (patch.capabilities !== undefined) {
-          daemonPatch.capabilities = capabilitiesToArray(patch.capabilities as InstanceConfig['capabilities']);
+      writeInstanceConfig(instance.dataDir, instance).catch((e) =>
+        console.error("[instanceStore] Failed to write instance config:", e)
+      );
+
+      // Push via WS if connected and hot-reloadable
+      if (!needsRestart) {
+        const client = getClient(id);
+        if (client?.connected) {
+          client.setDaemonConfig(patch).catch(console.error);
         }
-        if (patch.port !== undefined) daemonPatch.listen_port = patch.port;
-        if (patch.maxStorageGB !== undefined) daemonPatch.max_storage_bytes = patch.maxStorageGB * 1e9;
-        if (patch.url !== undefined) {
-          const wsPort = parseInt(patch.url.match(/:(\d+)/)?.[1] ?? "9091");
-          daemonPatch.ws_port = wsPort;
-        }
-        if (Object.keys(daemonPatch).length > 0) {
-          const updated = { ...existing, ...daemonPatch };
-          writeDaemonConfig(instance.dataDir, updated).catch((e) =>
-            console.error("[instanceStore] Failed to update daemon config:", e)
-          );
-          // Push via WS if connected and hot-reloadable
-          const client = getClient(id);
-          if (client?.connected && !hadRestartField) {
-            client.setDaemonConfig(daemonPatch as Partial<DaemonConfig>).catch(console.error);
-          }
-        }
-        return;
-      }).catch((e) => console.error("[instanceStore] Failed to update daemon config:", e));
+      }
     }
 
-    // Restart daemon if capabilities or network settings changed
-    if (hadRestartField) {
+    // Restart daemon if required fields changed
+    if (needsRestart) {
       get().restartInstance(id);
     }
+
+    // NO writes to global config for instance settings
   },
 
   restartInstance: async (id) => {
@@ -213,13 +143,10 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
     // Destroy the WS client first
     destroyClient(id);
 
-    // Config is already on disk — daemon will read it on start. No need to rewrite.
-
-    // List running daemons, find the one on this instance's port
-    const port = parseInt(instance.url.match(/:(\d+)/)?.[1] ?? "9091");
+    // Config is already on disk — daemon will read it on start
     try {
       const running = await invoke<Array<{ pid: number; ws_port: number }>>("list_datacraft_daemons");
-      const match = running.find((d) => d.ws_port === port);
+      const match = running.find((d) => d.ws_port === instance.ws_port);
       if (match) {
         await invoke("stop_datacraft_daemon", { pid: match.pid });
         logActivity(id, "Daemon stopped", "info");
@@ -229,17 +156,15 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
       logActivity(id, `Stop failed: ${e}`, "warn");
     }
 
-    // Re-start — capabilities are in the daemon config file now, no env var needed
-    const caps = capabilitiesToArray(instance.capabilities);
     try {
       await invoke("start_datacraft_daemon", {
         config: {
           data_dir: instance.dataDir,
-          socket_path: null,
-          ws_port: port,
+          socket_path: instance.socket_path,
+          ws_port: instance.ws_port,
           listen_addr: null,
           binary_path: null,
-          capabilities: caps,
+          capabilities: instance.capabilities,
         },
       });
       logActivity(id, "Daemon restarted", "success");
@@ -251,27 +176,21 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
     get().initClient(id);
   },
 
-  setDataDir: (id, dataDir) => {
-    set((s) => ({
-      dataDirs: { ...s.dataDirs, [id]: dataDir },
-    }));
-  },
-
   initClient: (id) => {
     const instance = get().instances.find((i) => i.id === id);
     if (!instance) return;
 
     const { logActivity } = get();
-    const dataDir = instance.dataDir || get().dataDirs[id];
+    const wsUrl = `ws://127.0.0.1:${instance.ws_port}/ws`;
     const apiKey = get().apiKeys[id];
 
-    logActivity(id, `Connecting to daemon at ${instance.url}...`);
+    logActivity(id, `Connecting to daemon at ws://127.0.0.1:${instance.ws_port}...`);
 
     set((s) => ({
       connectionStatus: { ...s.connectionStatus, [id]: "connecting" },
     }));
 
-    const client = createClient(id, `${instance.url}/ws`);
+    const client = createClient(id, wsUrl);
     client.onConnection((connected) => {
       if (connected) {
         logActivity(id, "WebSocket connected — daemon online", "success");
@@ -302,10 +221,7 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
       }));
     });
 
-    if (dataDir) {
-      logActivity(id, `Loading API key from ${dataDir}`);
-    }
-    client.start(dataDir, apiKey);
+    client.start(instance.dataDir, apiKey);
   },
 
   getActiveClient: () => {
@@ -317,67 +233,64 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
   /** Load instances from persisted config */
   loadFromConfig: async () => {
     const config = useConfigStore.getState().config;
-    if (config.instances.length > 0) {
-      set({
-        instances: config.instances,
-        activeId: config.activeInstanceId ?? config.instances[0]?.id ?? null,
-      });
+    const refs: InstanceRef[] = config.instances;
 
-      // Sync ALL instances from daemon config FIRST, then start daemons
-      for (const inst of config.instances) {
-        if (inst.dataDir) {
-          try {
-            const patch = await syncInstanceFromDaemonConfig(inst);
-            if (patch) {
-              set((s) => ({
-                instances: s.instances.map((i) => (i.id === inst.id ? { ...i, ...patch } : i)),
-              }));
-            }
-          } catch {
-            // Failed to read daemon config — use CraftStudio values as-is
-          }
-        }
+    if (refs.length === 0) return;
+
+    // Read each instance's config from its own {dataDir}/config.json
+    const loaded: InstanceConfig[] = [];
+    for (const ref of refs) {
+      try {
+        const instanceCfg = await readInstanceConfig(ref.dataDir);
+        // Ensure id and dataDir match the ref
+        instanceCfg.id = ref.id;
+        instanceCfg.dataDir = ref.dataDir;
+        loaded.push(instanceCfg);
+      } catch {
+        // Skip instances whose config can't be read
+        console.warn(`[instanceStore] Failed to load instance ${ref.id} from ${ref.dataDir}`);
       }
-      // Persist any synced changes back to CraftStudio config
-      get().persistToConfig();
+    }
 
-      // Now start daemons with the SYNCED instance state
-      const syncedInstances = get().instances;
-      for (const inst of syncedInstances) {
-        if (inst.autoStart && inst.dataDir) {
-          const caps = capabilitiesToArray(inst.capabilities);
-          const port = inst.url.match(/:(\d+)/)?.[1];
-          invoke<{ pid: number; ws_port: number; data_dir: string }>("start_datacraft_daemon", {
-            config: {
-              data_dir: inst.dataDir,
-              socket_path: null,
-              ws_port: port ? parseInt(port) : null,
-              listen_addr: null,
-              binary_path: null,
-              capabilities: caps,
-            },
-          }).then(() => {
-            get().logActivity(inst.id, "Daemon auto-started", "success");
-          }).catch((e) => {
-            const msg = String(e);
-            if (!msg.includes("already running") && !msg.includes("already in use")) {
-              get().logActivity(inst.id, `Auto-start failed: ${msg}`, "warn");
-            }
-          }).finally(() => {
-            get().initClient(inst.id);
-          });
-        } else {
+    set({
+      instances: loaded,
+      activeId: config.activeInstanceId ?? loaded[0]?.id ?? null,
+    });
+
+    // Start daemons and connect
+    for (const inst of loaded) {
+      if (inst.autoStart && inst.dataDir) {
+        invoke<{ pid: number; ws_port: number; data_dir: string }>("start_datacraft_daemon", {
+          config: {
+            data_dir: inst.dataDir,
+            socket_path: inst.socket_path,
+            ws_port: inst.ws_port,
+            listen_addr: null,
+            binary_path: null,
+            capabilities: inst.capabilities,
+          },
+        }).then(() => {
+          get().logActivity(inst.id, "Daemon auto-started", "success");
+        }).catch((e) => {
+          const msg = String(e);
+          if (!msg.includes("already running") && !msg.includes("already in use")) {
+            get().logActivity(inst.id, `Auto-start failed: ${msg}`, "warn");
+          }
+        }).finally(() => {
           get().initClient(inst.id);
-        }
+        });
+      } else {
+        get().initClient(inst.id);
       }
     }
   },
 
-  /** Persist current instances to config file */
+  /** Persist global config — only instance refs, not full configs */
   persistToConfig: () => {
     const { instances, activeId } = get();
+    const refs: InstanceRef[] = instances.map((i) => ({ id: i.id, dataDir: i.dataDir }));
     useConfigStore.getState().update({
-      instances,
+      instances: refs,
       activeInstanceId: activeId,
     });
   },

@@ -28,14 +28,11 @@ export default function AddInstanceModal({ open, onClose }: Props) {
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-
-  // Scan for existing configs when modal opens
   useEffect(() => {
     if (!open) return;
     (async () => {
       try {
         const configs = await invoke<LocalDaemonConfig[]>("discover_local_daemons");
-        // Filter out configs already loaded as instances
         const existingDirs = new Set(useInstanceStore.getState().instances.map(i => i.dataDir));
         setLocalConfigs(configs.filter(c => !existingDirs.has(c.data_dir)));
       } catch {
@@ -53,9 +50,9 @@ export default function AddInstanceModal({ open, onClose }: Props) {
       });
       addInstance(makeInstanceConfig({
         name: `Local Node (:${result.ws_port})`,
-        url: `ws://127.0.0.1:${result.ws_port}`,
         autoStart: true,
         dataDir: result.data_dir,
+        ws_port: result.ws_port,
       }));
       handleClose();
     } catch (e) {
@@ -81,9 +78,9 @@ export default function AddInstanceModal({ open, onClose }: Props) {
       });
       addInstance(makeInstanceConfig({
         name: config.name,
-        url: `ws://127.0.0.1:${result.ws_port}`,
         autoStart: true,
         dataDir: result.data_dir,
+        ws_port: result.ws_port,
       }));
       handleClose();
     } catch (e) {
@@ -91,9 +88,9 @@ export default function AddInstanceModal({ open, onClose }: Props) {
       if (msg.includes("already running")) {
         addInstance(makeInstanceConfig({
           name: config.name,
-          url: `ws://127.0.0.1:${port}`,
           autoStart: false,
           dataDir: config.data_dir,
+          ws_port: port,
         }));
         handleClose();
       } else {
@@ -104,11 +101,13 @@ export default function AddInstanceModal({ open, onClose }: Props) {
 
   const connectRemote = () => {
     if (!remoteUrl.trim()) return;
-    addInstance(makeInstanceConfig({
+    const wsPort = parseInt(remoteUrl.match(/:(\d+)/)?.[1] ?? "9091");
+    const inst = makeInstanceConfig({
       name: remoteName.trim() || remoteUrl.replace(/^wss?:\/\//, ""),
-      url: remoteUrl.trim(),
       autoStart: false,
-    }), remoteApiKey.trim() ? { apiKey: remoteApiKey.trim() } : undefined);
+      ws_port: wsPort,
+    });
+    addInstance(inst, remoteApiKey.trim() ? { apiKey: remoteApiKey.trim() } : undefined);
     handleClose();
   };
 
@@ -131,7 +130,6 @@ export default function AddInstanceModal({ open, onClose }: Props) {
 
       {mode === "list" ? (
         <div className="space-y-3">
-          {/* Start new */}
           <button
             onClick={startLocal}
             disabled={starting}
@@ -144,7 +142,6 @@ export default function AddInstanceModal({ open, onClose }: Props) {
             </div>
           </button>
 
-          {/* Existing configs */}
           {localConfigs.length > 0 && (
             <>
               <p className="text-xs text-gray-500 uppercase tracking-wider pt-1">Existing</p>
@@ -167,7 +164,6 @@ export default function AddInstanceModal({ open, onClose }: Props) {
             </>
           )}
 
-          {/* Remote option */}
           <button
             onClick={() => setMode("remote")}
             className="flex items-center gap-3 w-full px-4 py-3 bg-gray-800 hover:bg-gray-700 rounded-lg text-left transition-colors"

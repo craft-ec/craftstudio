@@ -58,8 +58,7 @@ export default function DashboardPage() {
     logActivity(instance.id, "Stopping daemon...", "warn");
     try {
       const daemons = await invoke<Array<{ pid: number; ws_port: number }>>('list_datacraft_daemons');
-      const port = parseInt(instance.url.match(/:(\d+)/)?.[1] ?? '9091');
-      const running = daemons.find(d => d.ws_port === port);
+      const running = daemons.find(d => d.ws_port === instance.ws_port);
       destroyClient(instance.id);
       if (running) {
         await invoke('stop_datacraft_daemon', { pid: running.pid });
@@ -76,20 +75,14 @@ export default function DashboardPage() {
     if (!instance) return;
     logActivity(instance.id, "Starting daemon...", "info");
     try {
-      const caps: string[] = [];
-      if (instance.capabilities?.client) caps.push("client");
-      if (instance.capabilities?.storage) caps.push("storage");
-      if (instance.capabilities?.aggregator) caps.push("aggregator");
-      const port = parseInt(instance.url.match(/:(\d+)/)?.[1] ?? '9091');
-
       await invoke('start_datacraft_daemon', {
         config: {
           data_dir: instance.dataDir,
-          socket_path: null,
-          ws_port: port,
+          socket_path: instance.socket_path,
+          ws_port: instance.ws_port,
           listen_addr: null,
           binary_path: null,
-          capabilities: caps.length > 0 ? caps : ["client"],
+          capabilities: instance.capabilities.length > 0 ? instance.capabilities : ["client"],
         },
       });
       logActivity(instance.id, "Daemon started", "success");
@@ -170,7 +163,7 @@ export default function DashboardPage() {
                 ? "Connecting..."
                 : "Disconnected"}
             </p>
-            <p className="text-sm text-gray-500">{instance?.url ?? "—"}</p>
+            <p className="text-sm text-gray-500">{instance ? `ws://127.0.0.1:${instance.ws_port}` : "—"}</p>
           </div>
         </div>
         {instance && (
@@ -247,22 +240,25 @@ export default function DashboardPage() {
           <h2 className="text-lg font-semibold mb-3">Capabilities</h2>
           <div className="flex gap-3">
             {[
-              { key: "client", label: "Client", icon: MonitorSmartphone, enabled: caps.client },
-              { key: "storage", label: "Storage", icon: Database, enabled: caps.storage },
-              { key: "aggregator", label: "Aggregator", icon: Layers, enabled: caps.aggregator },
-            ].map(({ key, label, icon: Icon, enabled }) => (
-              <div
-                key={key}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm ${
-                  enabled
-                    ? "bg-craftec-600/20 text-craftec-400 border border-craftec-600/30"
-                    : "bg-gray-800 text-gray-500 border border-gray-700"
-                }`}
-              >
-                <Icon size={14} />
-                {label}
-              </div>
-            ))}
+              { key: "client", label: "Client", icon: MonitorSmartphone },
+              { key: "storage", label: "Storage", icon: Database },
+              { key: "aggregator", label: "Aggregator", icon: Layers },
+            ].map(({ key, label, icon: Icon }) => {
+              const enabled = caps.includes(key);
+              return (
+                <div
+                  key={key}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm ${
+                    enabled
+                      ? "bg-craftec-600/20 text-craftec-400 border border-craftec-600/30"
+                      : "bg-gray-800 text-gray-500 border border-gray-700"
+                  }`}
+                >
+                  <Icon size={14} />
+                  {label}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

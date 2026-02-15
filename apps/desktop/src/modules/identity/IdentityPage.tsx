@@ -10,7 +10,7 @@ export default function IdentityPage() {
   const { did } = useIdentityStore();
   const setDid = useIdentityStore((s) => s.setDid);
   const instance = useActiveInstance();
-  const keypairPath = instance?.keypairPath ?? "";
+  const keypairPath = instance?.keypair_path ?? "";
   const cluster = useConfigStore((s) => s.config.solana.cluster);
   const [copied, setCopied] = useState(false);
 

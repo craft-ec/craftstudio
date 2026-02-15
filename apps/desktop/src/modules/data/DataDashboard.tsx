@@ -8,12 +8,12 @@ import AggregatorTab from "./tabs/AggregatorTab";
 
 export default function DataDashboard() {
   const instance = useActiveInstance();
-  const caps = instance?.capabilities ?? { client: false, storage: false, aggregator: false };
+  const caps = instance?.capabilities ?? [];
 
   const tabs: TabDef[] = [
     { key: "client", label: "Client", icon: <MonitorSmartphone size={16} /> },
-    ...(caps.storage ? [{ key: "storage", label: "Storage", icon: <HardDrive size={16} /> }] : []),
-    ...(caps.aggregator ? [{ key: "aggregator", label: "Aggregator", icon: <Layers size={16} /> }] : []),
+    ...(caps.includes('storage') ? [{ key: "storage", label: "Storage", icon: <HardDrive size={16} /> }] : []),
+    ...(caps.includes('aggregator') ? [{ key: "aggregator", label: "Aggregator", icon: <Layers size={16} /> }] : []),
   ];
 
   return (

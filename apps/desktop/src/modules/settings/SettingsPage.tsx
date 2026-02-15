@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback, useState } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
   Settings,
@@ -15,9 +15,7 @@ import {
 import { useConfigStore } from '../../store/configStore';
 import { useInstanceStore } from '../../store/instanceStore';
 import { useActiveInstance } from '../../hooks/useActiveInstance';
-import { getClient } from '../../services/daemon';
-import { readDaemonConfig, writeDaemonConfig } from '../../services/config';
-import { CraftStudioConfig, InstanceConfig, DaemonConfig } from '../../types/config';
+import { CraftStudioConfig, InstanceConfig, DEFAULT_INSTANCE_CONFIG } from '../../types/config';
 
 /* ─── tiny helpers ─── */
 function Toggle({
@@ -193,83 +191,17 @@ function Slider({
   );
 }
 
-function StatusBadge({ connected }: { connected: boolean }) {
-  return (
-    <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${
-      connected ? 'bg-green-900/50 text-green-400' : 'bg-gray-800 text-gray-500'
-    }`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-green-400' : 'bg-gray-600'}`} />
-      {connected ? 'Live' : 'From file'}
-    </span>
-  );
-}
-
 /* ─── Main component ─── */
 export default function SettingsPage() {
   const { config, loaded, load } = useConfigStore();
   const updateStore = useConfigStore((s) => s.update);
   const instance = useActiveInstance();
   const updateInstance = useInstanceStore((s) => s.updateInstance);
-  const connectionStatus = useInstanceStore((s) => instance ? s.connectionStatus[instance.id] : undefined);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Daemon config state — loaded from file or live daemon
-  const [daemonCfg, setDaemonCfg] = useState<DaemonConfig | null>(null);
-  const [daemonCfgLoading, setDaemonCfgLoading] = useState(false);
-  const daemonSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const isConnected = connectionStatus === 'connected';
 
   useEffect(() => {
     if (!loaded) load();
   }, [loaded, load]);
-
-  // Load daemon config — from WS when connected, from file when disconnected
-  useEffect(() => {
-    if (!instance?.dataDir) {
-      setDaemonCfg(null);
-      return;
-    }
-    setDaemonCfgLoading(true);
-
-    if (isConnected) {
-      const client = getClient(instance.id);
-      if (client) {
-        client.getDaemonConfig()
-          .then((cfg) => setDaemonCfg(cfg))
-          .catch(() => {
-            // Fallback to file
-            readDaemonConfig(instance.dataDir).then(setDaemonCfg).catch(() => setDaemonCfg(null));
-          })
-          .finally(() => setDaemonCfgLoading(false));
-        return;
-      }
-    }
-
-    // Read from file
-    readDaemonConfig(instance.dataDir)
-      .then(setDaemonCfg)
-      .catch(() => setDaemonCfg(null))
-      .finally(() => setDaemonCfgLoading(false));
-  }, [instance?.id, instance?.dataDir, isConnected]);
-
-  // Patch daemon config — write to file AND push via WS if connected
-  const patchDaemonCfg = useCallback((field: keyof DaemonConfig, value: unknown) => {
-    if (!daemonCfg || !instance?.dataDir) return;
-    const next = { ...daemonCfg, [field]: value };
-    setDaemonCfg(next);
-
-    if (daemonSaveRef.current) clearTimeout(daemonSaveRef.current);
-    daemonSaveRef.current = setTimeout(() => {
-      // Always write to file
-      writeDaemonConfig(instance.dataDir, next).catch(console.error);
-      // Push via WS if connected
-      const client = getClient(instance.id);
-      if (client?.connected) {
-        client.setDaemonConfig({ [field]: value } as Partial<DaemonConfig>).catch(console.error);
-      }
-    }, 500);
-  }, [daemonCfg, instance?.id, instance?.dataDir]);
 
   // Auto-save global settings with debounce
   const patchGlobal = useCallback((fn: (d: CraftStudioConfig) => void) => {
@@ -287,22 +219,15 @@ export default function SettingsPage() {
     updateInstance(instance.id, fields);
   }, [instance, updateInstance]);
 
-  const resetDaemonTimingDefaults = useCallback(() => {
-    if (!daemonCfg || !instance?.dataDir) return;
-    const defaults = {
-      capability_announce_interval_secs: 300,
-      reannounce_interval_secs: 600,
-      reannounce_threshold_secs: 1200,
-      challenger_interval_secs: null as number | null,
-    };
-    const next = { ...daemonCfg, ...defaults };
-    setDaemonCfg(next);
-    writeDaemonConfig(instance.dataDir, next).catch(console.error);
-    const client = getClient(instance.id);
-    if (client?.connected) {
-      client.setDaemonConfig(defaults as unknown as Partial<DaemonConfig>).catch(console.error);
-    }
-  }, [daemonCfg, instance?.id, instance?.dataDir]);
+  const resetTimingDefaults = useCallback(() => {
+    if (!instance) return;
+    patchInstance({
+      capability_announce_interval_secs: DEFAULT_INSTANCE_CONFIG.capability_announce_interval_secs,
+      reannounce_interval_secs: DEFAULT_INSTANCE_CONFIG.reannounce_interval_secs,
+      reannounce_threshold_secs: DEFAULT_INSTANCE_CONFIG.reannounce_threshold_secs,
+      challenger_interval_secs: DEFAULT_INSTANCE_CONFIG.challenger_interval_secs,
+    });
+  }, [instance, patchInstance]);
 
   if (!loaded) {
     return (
@@ -322,7 +247,7 @@ export default function SettingsPage() {
       </div>
 
       <div className="space-y-4">
-        {/* ── Per-Instance: Connection ── */}
+        {/* ── Per-Instance Settings ── */}
         {instance ? (
           <>
             <div className="border-b border-gray-800 pb-2 mb-2">
@@ -338,19 +263,21 @@ export default function SettingsPage() {
                 onChange={(v) => patchInstance({ name: v })}
               />
               <Input
-                label="Daemon URL"
-                value={instance.url}
-                onChange={(v) => patchInstance({ url: v })}
-                placeholder="ws://127.0.0.1:9091"
-                mono
-                hint="WebSocket URL for daemon IPC"
+                label="WebSocket Port"
+                value={String(instance.ws_port)}
+                onChange={(v) => {
+                  const n = parseInt(v, 10);
+                  if (!isNaN(n) && n > 0 && n < 65536) patchInstance({ ws_port: n });
+                }}
+                type="number"
+                hint="WebSocket port for daemon IPC"
               />
               <Input
                 label="Listen Port"
-                value={String(instance.port)}
+                value={String(instance.listen_port)}
                 onChange={(v) => {
                   const n = parseInt(v, 10);
-                  if (!isNaN(n) && n > 0 && n < 65536) patchInstance({ port: n });
+                  if (!isNaN(n) && n > 0 && n < 65536) patchInstance({ listen_port: n });
                 }}
                 type="number"
                 hint="libp2p listen port for peer connections"
@@ -367,21 +294,19 @@ export default function SettingsPage() {
               <div className="space-y-2">
                 <span className="text-sm text-gray-400">Capabilities</span>
                 <p className="text-xs text-amber-500/80">⚠ Changes require daemon restart</p>
-                <Toggle
-                  label="Client"
-                  checked={instance.capabilities.client}
-                  onChange={(v) => patchInstance({ capabilities: { ...instance.capabilities, client: v } })}
-                />
-                <Toggle
-                  label="Storage Node"
-                  checked={instance.capabilities.storage}
-                  onChange={(v) => patchInstance({ capabilities: { ...instance.capabilities, storage: v } })}
-                />
-                <Toggle
-                  label="Aggregator"
-                  checked={instance.capabilities.aggregator}
-                  onChange={(v) => patchInstance({ capabilities: { ...instance.capabilities, aggregator: v } })}
-                />
+                {['client', 'storage', 'aggregator'].map((cap) => (
+                  <Toggle
+                    key={cap}
+                    label={cap.charAt(0).toUpperCase() + cap.slice(1)}
+                    checked={instance.capabilities.includes(cap)}
+                    onChange={(v) => {
+                      const caps = v
+                        ? [...instance.capabilities, cap]
+                        : instance.capabilities.filter((c) => c !== cap);
+                      patchInstance({ capabilities: caps });
+                    }}
+                  />
+                ))}
               </div>
               <Input
                 label="Data Directory"
@@ -396,8 +321,8 @@ export default function SettingsPage() {
             <Section icon={Key} title="Identity">
               <Input
                 label="Keypair Path"
-                value={instance.keypairPath}
-                onChange={(v) => patchInstance({ keypairPath: v })}
+                value={instance.keypair_path}
+                onChange={(v) => patchInstance({ keypair_path: v })}
                 mono
               />
               <div className="flex gap-2 pt-1">
@@ -413,33 +338,28 @@ export default function SettingsPage() {
             <Section icon={Database} title="Storage">
               <Input
                 label="Storage Path"
-                value={instance.storagePath}
-                onChange={(v) => patchInstance({ storagePath: v })}
+                value={instance.storage_path}
+                onChange={(v) => patchInstance({ storage_path: v })}
                 mono
               />
               <Slider
                 label="Max Storage"
-                value={instance.maxStorageGB}
-                onChange={(v) => patchInstance({ maxStorageGB: v })}
+                value={Math.round(instance.max_storage_bytes / 1e9)}
+                onChange={(v) => patchInstance({ max_storage_bytes: v * 1e9 })}
                 min={1}
                 max={500}
                 step={1}
                 unit="GB"
               />
-              {daemonCfg && (
-                <div className="text-xs text-gray-500">
-                  Daemon config: {Math.round(daemonCfg.max_storage_bytes / 1e9)} GB max
-                </div>
-              )}
             </Section>
 
             <Section icon={Activity} title="Bandwidth">
               <Input
                 label="Bandwidth Limit (Mbps)"
-                value={instance.bandwidthLimitMbps != null ? String(instance.bandwidthLimitMbps) : ''}
+                value={instance.bandwidth_limit_mbps != null ? String(instance.bandwidth_limit_mbps) : ''}
                 onChange={(v) => {
                   const n = parseInt(v, 10);
-                  patchInstance({ bandwidthLimitMbps: isNaN(n) ? undefined : n });
+                  patchInstance({ bandwidth_limit_mbps: isNaN(n) ? null : n });
                 }}
                 placeholder="Unlimited"
                 type="number"
@@ -447,75 +367,60 @@ export default function SettingsPage() {
               />
             </Section>
 
-            {/* ── Protocol / Daemon Timing — always visible ── */}
+            {/* ── Protocol / Timing ── */}
             <Section
               icon={Timer}
               title="Protocol"
-              onReset={daemonCfg ? resetDaemonTimingDefaults : undefined}
+              onReset={resetTimingDefaults}
             >
-              {daemonCfgLoading ? (
-                <div className="flex items-center gap-2 text-gray-500 text-sm">
-                  <Loader2 className="animate-spin" size={16} /> Loading daemon config…
-                </div>
-              ) : daemonCfg ? (
-                <>
-                  <div className="flex items-center justify-between mb-1">
-                    <p className="text-xs text-gray-500">
-                      Daemon timing parameters — changes are hot-reloaded (no restart needed).
-                    </p>
-                    <StatusBadge connected={isConnected} />
-                  </div>
-                  <Input
-                    label="Capability Announce Interval (secs)"
-                    value={String(daemonCfg.capability_announce_interval_secs)}
-                    onChange={(v) => {
-                      const n = parseInt(v, 10);
-                      if (!isNaN(n) && n > 0) patchDaemonCfg('capability_announce_interval_secs', n);
-                    }}
-                    type="number"
-                    hint="How often to announce capabilities to the DHT"
-                  />
-                  <Input
-                    label="Re-announce Interval (secs)"
-                    value={String(daemonCfg.reannounce_interval_secs)}
-                    onChange={(v) => {
-                      const n = parseInt(v, 10);
-                      if (!isNaN(n) && n > 0) patchDaemonCfg('reannounce_interval_secs', n);
-                    }}
-                    type="number"
-                    hint="How often to check for stale content that needs re-announcing"
-                  />
-                  <Input
-                    label="Re-announce Threshold (secs)"
-                    value={String(daemonCfg.reannounce_threshold_secs)}
-                    onChange={(v) => {
-                      const n = parseInt(v, 10);
-                      if (!isNaN(n) && n > 0) patchDaemonCfg('reannounce_threshold_secs', n);
-                    }}
-                    type="number"
-                    hint="Content older than this is considered stale and re-announced"
-                  />
-                  <Input
-                    label="Challenger Interval (secs)"
-                    value={daemonCfg.challenger_interval_secs != null ? String(daemonCfg.challenger_interval_secs) : ''}
-                    onChange={(v) => {
-                      if (v === '' || v === '0') {
-                        patchDaemonCfg('challenger_interval_secs', null);
-                      } else {
-                        const n = parseInt(v, 10);
-                        if (!isNaN(n) && n > 0) patchDaemonCfg('challenger_interval_secs', n);
-                      }
-                    }}
-                    type="number"
-                    placeholder="Disabled"
-                    hint="Proof-of-storage challenge interval (empty = disabled)"
-                  />
-                </>
-              ) : (
-                <p className="text-sm text-gray-500">
-                  No daemon config found. Start the daemon or create an instance with a data directory.
-                </p>
-              )}
+              <p className="text-xs text-gray-500">
+                Daemon timing parameters — changes are hot-reloaded (no restart needed).
+              </p>
+              <Input
+                label="Capability Announce Interval (secs)"
+                value={String(instance.capability_announce_interval_secs)}
+                onChange={(v) => {
+                  const n = parseInt(v, 10);
+                  if (!isNaN(n) && n > 0) patchInstance({ capability_announce_interval_secs: n });
+                }}
+                type="number"
+                hint="How often to announce capabilities to the DHT"
+              />
+              <Input
+                label="Re-announce Interval (secs)"
+                value={String(instance.reannounce_interval_secs)}
+                onChange={(v) => {
+                  const n = parseInt(v, 10);
+                  if (!isNaN(n) && n > 0) patchInstance({ reannounce_interval_secs: n });
+                }}
+                type="number"
+                hint="How often to check for stale content that needs re-announcing"
+              />
+              <Input
+                label="Re-announce Threshold (secs)"
+                value={String(instance.reannounce_threshold_secs)}
+                onChange={(v) => {
+                  const n = parseInt(v, 10);
+                  if (!isNaN(n) && n > 0) patchInstance({ reannounce_threshold_secs: n });
+                }}
+                type="number"
+                hint="Content older than this is considered stale and re-announced"
+              />
+              <Input
+                label="Challenger Interval (secs)"
+                value={instance.challenger_interval_secs != null ? String(instance.challenger_interval_secs) : ''}
+                onChange={(v) => {
+                  if (v === '' || v === '0') {
+                    patchInstance({ challenger_interval_secs: null });
+                  } else {
+                    const n = parseInt(v, 10);
+                    if (!isNaN(n) && n > 0) patchInstance({ challenger_interval_secs: n });
+                  }
+                }}
+                type="number"
+                placeholder="Disabled"
+                hint="Proof-of-storage challenge interval (empty = disabled)"
+              />
             </Section>
           </>
         ) : (

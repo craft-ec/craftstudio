@@ -25,11 +25,11 @@ export default function NetworkPage() {
   const client = useDaemon();
   const instance = useActiveInstance();
   const updateInstance = useInstanceStore((s) => s.updateInstance);
-  const caps = instance?.capabilities ?? { client: false, storage: false, aggregator: false };
+  const caps = instance?.capabilities ?? [];
   const capabilities: Capability[] = [
-    { key: "client", label: "Client", enabled: caps.client },
-    { key: "storage", label: "Storage", enabled: caps.storage },
-    { key: "aggregator", label: "Aggregator", enabled: caps.aggregator },
+    { key: "client", label: "Client", enabled: caps.includes('client') },
+    { key: "storage", label: "Storage", enabled: caps.includes('storage') },
+    { key: "aggregator", label: "Aggregator", enabled: caps.includes('aggregator') },
   ];
   const peerStats = usePeers();
   const [peers, setPeers] = useState<Record<string, { capabilities: string[]; last_seen: number }>>({});
@@ -64,8 +64,10 @@ export default function NetworkPage() {
 
   const toggle = (key: string) => {
     if (!instance) return;
-    const newCaps = { ...instance.capabilities };
-    newCaps[key as keyof typeof newCaps] = !newCaps[key as keyof typeof newCaps];
+    const has = instance.capabilities.includes(key);
+    const newCaps = has
+      ? instance.capabilities.filter((c) => c !== key)
+      : [...instance.capabilities, key];
     updateInstance(instance.id, { capabilities: newCaps });
   };
 
