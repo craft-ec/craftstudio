@@ -47,21 +47,41 @@ function generateId(): string {
 
 export { generateId };
 
-/** Build a DaemonConfig from an InstanceConfig */
-function buildDaemonConfig(instance: InstanceConfig, existing?: Partial<DaemonConfig>): DaemonConfig {
-  const caps = capabilitiesToArray(instance.capabilities);
-  const port = parseInt(instance.url.match(/:(\d+)/)?.[1] ?? "9091");
-  return {
-    ...structuredClone(DEFAULT_DAEMON_CONFIG),
-    // Preserve existing timing settings if available
-    ...(existing ?? {}),
-    // Always override these from CraftStudio (source of truth for user intent)
-    capabilities: caps,
-    ws_port: port,
-    listen_port: instance.port,
-    max_storage_bytes: instance.maxStorageGB * 1e9,
-    schema_version: 2,
-  };
+/** Sync instance UI state FROM daemon config file (daemon config is source of truth) */
+async function syncInstanceFromDaemonConfig(instance: InstanceConfig): Promise<Partial<InstanceConfig> | null> {
+  if (!instance.dataDir) return null;
+  try {
+    const daemonCfg = await readDaemonConfig(instance.dataDir);
+    const patch: Partial<InstanceConfig> = {};
+    // Sync capabilities
+    const caps = {
+      client: daemonCfg.capabilities.includes('client'),
+      storage: daemonCfg.capabilities.includes('storage'),
+      aggregator: daemonCfg.capabilities.includes('aggregator'),
+    };
+    if (JSON.stringify(caps) !== JSON.stringify(instance.capabilities)) {
+      patch.capabilities = caps;
+    }
+    // Sync listen port
+    if (daemonCfg.listen_port && daemonCfg.listen_port !== instance.port) {
+      patch.port = daemonCfg.listen_port;
+    }
+    // Sync max storage
+    const maxGB = Math.round(daemonCfg.max_storage_bytes / 1e9);
+    if (maxGB > 0 && maxGB !== instance.maxStorageGB) {
+      patch.maxStorageGB = maxGB;
+    }
+    // Sync ws_port into URL if different
+    if (daemonCfg.ws_port) {
+      const expectedUrl = `ws://127.0.0.1:${daemonCfg.ws_port}`;
+      if (instance.url !== expectedUrl) {
+        patch.url = expectedUrl;
+      }
+    }
+    return Object.keys(patch).length > 0 ? patch : null;
+  } catch {
+    return null;
+  }
 }
 
 export const useInstanceStore = create<InstanceState>((set, get) => ({
@@ -89,12 +109,25 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
       ...(apiKey ? { apiKeys: { ...s.apiKeys, [instance.id]: apiKey } } : {}),
     }));
 
-    // Write daemon config to the instance's data dir
+    // Write initial daemon config only if one doesn't exist yet
     if (instance.dataDir) {
-      const daemonCfg = buildDaemonConfig(instance);
-      writeDaemonConfig(instance.dataDir, daemonCfg).catch((e) =>
-        console.error("[instanceStore] Failed to write daemon config:", e)
-      );
+      readDaemonConfig(instance.dataDir).then((existing) => {
+        // If we got back defaults (no file), write initial config
+        if (existing.ws_port === DEFAULT_DAEMON_CONFIG.ws_port && existing.listen_port === DEFAULT_DAEMON_CONFIG.listen_port) {
+          const caps = capabilitiesToArray(instance.capabilities);
+          const port = parseInt(instance.url.match(/:(\d+)/)?.[1] ?? "9091");
+          const initial: DaemonConfig = {
+            ...structuredClone(DEFAULT_DAEMON_CONFIG),
+            capabilities: caps,
+            ws_port: port,
+            listen_port: instance.port,
+            max_storage_bytes: instance.maxStorageGB * 1e9,
+          };
+          writeDaemonConfig(instance.dataDir, initial).catch((e) =>
+            console.error("[instanceStore] Failed to write initial daemon config:", e)
+          );
+        }
+      }).catch(() => {});
     }
 
     // Create and init client
@@ -135,25 +168,33 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
     }));
     get().persistToConfig();
 
-    // Update daemon config file
+    // Update daemon config file — only write the fields that changed
     const instance = get().instances.find((i) => i.id === id);
     if (instance?.dataDir) {
-      // Read existing daemon config, merge our changes, write back
       readDaemonConfig(instance.dataDir).then((existing) => {
-        const updated = buildDaemonConfig(instance, existing);
-        return writeDaemonConfig(instance.dataDir, updated);
-      }).catch((e) => console.error("[instanceStore] Failed to update daemon config:", e));
-
-      // If daemon is running and it's a hot-reloadable change, push via WS
-      const client = getClient(id);
-      if (client?.connected && !hadRestartField) {
-        // Hot-reload timing changes etc. via set-config
-        const daemonPatch: Record<string, unknown> = {};
-        if (patch.maxStorageGB !== undefined) daemonPatch.max_storage_bytes = patch.maxStorageGB * 1e9;
-        if (Object.keys(daemonPatch).length > 0) {
-          client.setDaemonConfig(daemonPatch as Partial<DaemonConfig>).catch(console.error);
+        const daemonPatch: Partial<DaemonConfig> = {};
+        if (patch.capabilities !== undefined) {
+          daemonPatch.capabilities = capabilitiesToArray(patch.capabilities as InstanceConfig['capabilities']);
         }
-      }
+        if (patch.port !== undefined) daemonPatch.listen_port = patch.port;
+        if (patch.maxStorageGB !== undefined) daemonPatch.max_storage_bytes = patch.maxStorageGB * 1e9;
+        if (patch.url !== undefined) {
+          const wsPort = parseInt(patch.url.match(/:(\d+)/)?.[1] ?? "9091");
+          daemonPatch.ws_port = wsPort;
+        }
+        if (Object.keys(daemonPatch).length > 0) {
+          const updated = { ...existing, ...daemonPatch };
+          writeDaemonConfig(instance.dataDir, updated).catch((e) =>
+            console.error("[instanceStore] Failed to update daemon config:", e)
+          );
+          // Push via WS if connected and hot-reloadable
+          const client = getClient(id);
+          if (client?.connected && !hadRestartField) {
+            client.setDaemonConfig(daemonPatch as Partial<DaemonConfig>).catch(console.error);
+          }
+        }
+        return;
+      }).catch((e) => console.error("[instanceStore] Failed to update daemon config:", e));
     }
 
     // Restart daemon if capabilities or network settings changed
@@ -172,17 +213,7 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
     // Destroy the WS client first
     destroyClient(id);
 
-    // Reload daemon config from disk before restarting
-    let daemonCfg: DaemonConfig | undefined;
-    if (instance.dataDir) {
-      try {
-        const existing = await readDaemonConfig(instance.dataDir);
-        daemonCfg = buildDaemonConfig(instance, existing);
-        await writeDaemonConfig(instance.dataDir, daemonCfg);
-      } catch (e) {
-        logActivity(id, `Config reload failed: ${e}`, "warn");
-      }
-    }
+    // Config is already on disk — daemon will read it on start. No need to rewrite.
 
     // List running daemons, find the one on this instance's port
     const port = parseInt(instance.url.match(/:(\d+)/)?.[1] ?? "9091");
@@ -291,8 +322,19 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
         instances: config.instances,
         activeId: config.activeInstanceId ?? config.instances[0]?.id ?? null,
       });
-      // Auto-start daemons and init clients for all instances
+      // Sync UI state from daemon config files, then auto-start
       for (const inst of config.instances) {
+        // Read daemon config and sync instance state FROM it
+        if (inst.dataDir) {
+          syncInstanceFromDaemonConfig(inst).then((patch) => {
+            if (patch) {
+              set((s) => ({
+                instances: s.instances.map((i) => (i.id === inst.id ? { ...i, ...patch } : i)),
+              }));
+              get().persistToConfig();
+            }
+          }).catch(() => {});
+        }
         if (inst.autoStart && inst.dataDir) {
           const caps = capabilitiesToArray(inst.capabilities);
           const port = inst.url.match(/:(\d+)/)?.[1];
