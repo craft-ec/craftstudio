@@ -1,4 +1,4 @@
-import { Shield, Database, User, Monitor, Wallet, Settings } from "lucide-react";
+import { Shield, Database, User, Globe, Wallet, Settings, LayoutDashboard } from "lucide-react";
 import type { Page } from "../App";
 
 interface Props {
@@ -7,10 +7,11 @@ interface Props {
 }
 
 const navItems: { page: Page; icon: typeof Shield; label: string }[] = [
+  { page: "dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { page: "tunnel", icon: Shield, label: "TunnelCraft" },
   { page: "data", icon: Database, label: "DataCraft" },
   { page: "identity", icon: User, label: "Identity" },
-  { page: "node", icon: Monitor, label: "Node" },
+  { page: "network", icon: Globe, label: "Network" },
   { page: "wallet", icon: Wallet, label: "Wallet" },
   { page: "settings", icon: Settings, label: "Settings" },
 ];

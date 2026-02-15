@@ -37,7 +37,9 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
     const current = get().config;
     const next = {
       ...current,
-      [section]: { ...current[section], ...patch },
+      [section]: typeof current[section] === 'object' && current[section] !== null && !Array.isArray(current[section])
+        ? { ...(current[section] as Record<string, unknown>), ...(patch as Record<string, unknown>) }
+        : patch,
     };
     set({ config: next, saving: true });
     await saveConfig(next);

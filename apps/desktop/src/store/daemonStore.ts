@@ -1,27 +1,33 @@
 import { create } from "zustand";
-import { daemon } from "../services/daemon";
-import { useConfigStore } from "./configStore";
+import { useInstanceStore } from "./instanceStore";
+import { getClient } from "../services/daemon";
 
+/**
+ * Daemon store - now delegates to instance store for connection status.
+ * Kept for backward compatibility with components that still import it.
+ */
 interface DaemonState {
   connected: boolean;
   reconnect: () => void;
 }
 
 export const useDaemonStore = create<DaemonState>((set) => {
-  // Subscribe to connection changes from the singleton
-  daemon.onConnection((connected) => set({ connected }));
-
-  // Watch config for daemon URL changes
-  useConfigStore.subscribe((state, prev) => {
-    const newUrl = state.config.daemons.datacraft.url;
-    const oldUrl = prev.config.daemons.datacraft.url;
-    if (newUrl !== oldUrl) {
-      daemon.setUrl(newUrl);
-    }
+  // Subscribe to instance store changes to derive connection status
+  useInstanceStore.subscribe((state) => {
+    const activeId = state.activeId;
+    const connected = activeId
+      ? state.connectionStatus[activeId] === "connected"
+      : false;
+    set({ connected });
   });
 
   return {
-    connected: daemon.connected,
-    reconnect: () => daemon.reconnect(),
+    connected: false,
+    reconnect: () => {
+      const { activeId } = useInstanceStore.getState();
+      if (!activeId) return;
+      const client = getClient(activeId);
+      client?.reconnect();
+    },
   };
 });

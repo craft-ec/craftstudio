@@ -1,5 +1,12 @@
 /** CraftStudio configuration schema — persisted to ~/.craftstudio/config.json */
 
+export interface InstanceConfig {
+  id: string;
+  name: string;
+  url: string;
+  autoStart: boolean;
+}
+
 export interface CraftStudioConfig {
   solana: {
     cluster: 'devnet' | 'mainnet-beta' | 'custom';
@@ -28,6 +35,9 @@ export interface CraftStudioConfig {
     port: number;
   };
 
+  instances: InstanceConfig[];
+  activeInstanceId: string | null;
+
   ui: {
     theme: 'dark' | 'light' | 'system';
     notifications: boolean;
@@ -53,6 +63,8 @@ export const DEFAULT_CONFIG: CraftStudioConfig = {
     maxStorageGB: 50,
     port: 4001,
   },
+  instances: [],
+  activeInstanceId: null,
   ui: {
     theme: 'dark',
     notifications: true,

@@ -1,9 +1,11 @@
 import { WifiOff, RefreshCw } from "lucide-react";
-import { useDaemonStore } from "../store/daemonStore";
+import { useActiveConnection } from "../hooks/useDaemon";
+import { useDaemon } from "../hooks/useDaemon";
 
 /** Banner shown when daemon WebSocket is disconnected. */
 export default function DaemonOffline() {
-  const { connected, reconnect } = useDaemonStore();
+  const { connected } = useActiveConnection();
+  const client = useDaemon();
 
   if (connected) return null;
 
@@ -14,7 +16,7 @@ export default function DaemonOffline() {
         <span>Daemon offline — connect the DataCraft daemon to see real data</span>
       </div>
       <button
-        onClick={reconnect}
+        onClick={() => client?.reconnect()}
         className="flex items-center gap-1 px-3 py-1 bg-red-800 hover:bg-red-700 text-red-200 rounded text-xs transition-colors"
       >
         <RefreshCw size={12} /> Reconnect

@@ -152,6 +152,12 @@ class DaemonClient {
     }
   }
 
+  /** Start connecting (public entry point for multi-instance use). */
+  start() {
+    this.destroyed = false;
+    this.connect();
+  }
+
   /** Force a reconnect (e.g. from UI "Reconnect" button) */
   reconnect() {
     this.ws?.close();
@@ -341,6 +347,40 @@ class DaemonClient {
   }
 }
 
-/** Singleton daemon client — call daemon.init() after config is loaded */
+// ── Multi-instance client management ────────────────────────
+
+const clients = new Map<string, DaemonClient>();
+
+export function createClient(instanceId: string, url: string): DaemonClient {
+  const existing = clients.get(instanceId);
+  if (existing) {
+    existing.destroy();
+  }
+  const client = new DaemonClient(url);
+  clients.set(instanceId, client);
+  return client;
+}
+
+export function getClient(instanceId: string): DaemonClient | undefined {
+  return clients.get(instanceId);
+}
+
+export function destroyClient(instanceId: string): void {
+  const client = clients.get(instanceId);
+  if (client) {
+    client.destroy();
+    clients.delete(instanceId);
+  }
+}
+
+export function destroyAllClients(): void {
+  for (const [id, client] of clients) {
+    client.destroy();
+    clients.delete(id);
+  }
+}
+
+/** @deprecated Use createClient/getClient instead. Kept for backward compat during migration. */
 export const daemon = new DaemonClient();
-export type { DaemonClient };
+
+export { DaemonClient };

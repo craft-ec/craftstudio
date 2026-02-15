@@ -1,12 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
-import { Monitor, Activity, Users, Clock, Zap, DollarSign } from "lucide-react";
-import { daemon } from "../../services/daemon";
-import { useDaemonStore } from "../../store/daemonStore";
+import { Globe, Activity, Users, Clock, Zap, DollarSign } from "lucide-react";
+import { useDaemon, useActiveConnection } from "../../hooks/useDaemon";
 import { useConfigStore } from "../../store/configStore";
 import StatCard from "../../components/StatCard";
 import DaemonOffline from "../../components/DaemonOffline";
 import NetworkHealth from "../../components/NetworkHealth";
-import DaemonNodes from "../../components/DaemonNodes";
 import { usePeers } from "../../hooks/usePeers";
 
 interface Capability {
@@ -21,8 +19,9 @@ interface ChannelSummary {
   totalSpent: number;
 }
 
-export default function NodePage() {
-  const { connected } = useDaemonStore();
+export default function NetworkPage() {
+  const { connected } = useActiveConnection();
+  const client = useDaemon();
   const { config, updateSection } = useConfigStore();
   const capabilities: Capability[] = [
     { key: "client", label: "Client", enabled: config.node.capabilities.client },
@@ -35,12 +34,12 @@ export default function NodePage() {
   const [uptime, setUptime] = useState("—");
 
   const loadNodeData = useCallback(async () => {
-    if (!connected) return;
+    if (!connected || !client) return;
     try {
       const [peersData, channelData, statusData] = await Promise.allSettled([
-        daemon.listPeers(),
-        daemon.listChannels(),
-        daemon.status(),
+        client.listPeers(),
+        client.listChannels(),
+        client.status(),
       ]);
 
       if (peersData.status === "fulfilled") setPeers(peersData.value || {});
@@ -53,11 +52,10 @@ export default function NodePage() {
         });
       }
       if (statusData.status === "fulfilled") {
-        // daemon.status() doesn't expose started_at yet — show connected state
         setUptime(connected ? "Connected" : "—");
       }
     } catch { /* */ }
-  }, [connected]);
+  }, [connected, client]);
 
   useEffect(() => { loadNodeData(); }, [loadNodeData]);
 
@@ -76,10 +74,8 @@ export default function NodePage() {
 
       <NetworkHealth />
 
-      <DaemonNodes />
-
       <h1 className="text-2xl font-bold mb-6 flex items-center gap-2">
-        <Monitor className="text-craftec-500" /> Node Overview
+        <Globe className="text-craftec-500" /> Network Overview
       </h1>
 
       {/* Status */}
@@ -87,7 +83,7 @@ export default function NodePage() {
         <StatCard icon={Activity} label="Status" value={connected ? "Online" : "Offline"} color={connected ? "text-green-400" : "text-red-400"} />
         <StatCard icon={Users} label="Peers" value={String(peerCount)} sub={`${storagePeers} storage`} />
         <StatCard icon={Clock} label="Uptime" value={uptime} />
-        <StatCard icon={Zap} label="Capabilities" value={`${capabilities.filter((c) => c.enabled).length}/4`} />
+        <StatCard icon={Zap} label="Capabilities" value={`${capabilities.filter((c) => c.enabled).length}/3`} />
       </div>
 
       {/* Channel Summary */}
@@ -113,7 +109,7 @@ export default function NodePage() {
 
       {/* Capability Toggles */}
       <div className="bg-gray-900 rounded-xl p-4">
-        <h2 className="text-lg font-semibold mb-3">Node Capabilities</h2>
+        <h2 className="text-lg font-semibold mb-3">Network Capabilities</h2>
         <p className="text-sm text-gray-500 mb-4">Enable capabilities to see their tabs on the DataCraft page.</p>
         <div className="space-y-3">
           {capabilities.map(({ key, label, enabled }) => (
