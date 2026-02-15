@@ -31,7 +31,7 @@ export default function EmptyState() {
     setStarting(true);
     setError(null);
     try {
-      const result = await invoke<{ pid: number; ws_port: number }>("start_datacraft_daemon", {
+      const result = await invoke<{ pid: number; ws_port: number; data_dir: string }>("start_datacraft_daemon", {
         config: {
           data_dir: null,
           socket_path: null,
@@ -44,7 +44,7 @@ export default function EmptyState() {
         name: `Local Node (:${result.ws_port})`,
         url: `ws://127.0.0.1:${result.ws_port}`,
         autoStart: true,
-      }));
+      }), result.data_dir);
     } catch (e) {
       const msg = String(e);
       console.error("Failed to start daemon:", msg);

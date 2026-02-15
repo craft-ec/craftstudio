@@ -64,11 +64,15 @@ pub fn get_version() -> VersionInfo {
 }
 
 #[tauri::command]
-pub fn get_daemon_api_key() -> Result<String, String> {
-    let path = dirs::home_dir()
-        .ok_or_else(|| "Cannot determine home directory".to_string())?
-        .join(".datacraft")
-        .join("api_key");
+pub fn get_daemon_api_key(data_dir: Option<String>) -> Result<String, String> {
+    let path = if let Some(dir) = data_dir {
+        expand_tilde(&dir).join("api_key")
+    } else {
+        dirs::home_dir()
+            .ok_or_else(|| "Cannot determine home directory".to_string())?
+            .join(".datacraft")
+            .join("api_key")
+    };
     fs::read_to_string(&path)
         .map(|s| s.trim().to_string())
         .map_err(|e| format!("Failed to read API key from {}: {}", path.display(), e))

@@ -46,15 +46,15 @@ class DaemonClient {
   }
 
   /** Initialize connection. Called after config is loaded. */
-  async init() {
-    await this.loadApiKey();
+  async init(dataDir?: string) {
+    await this.loadApiKey(dataDir);
     this.connect();
   }
 
   /** Load the API key from the daemon's well-known file via Tauri. */
-  private async loadApiKey() {
+  private async loadApiKey(dataDir?: string) {
     try {
-      this._apiKey = await invoke<string>('get_daemon_api_key');
+      this._apiKey = await invoke<string>('get_daemon_api_key', { dataDir: dataDir ?? null });
     } catch (err) {
       console.warn('[daemon] Failed to load API key:', err);
       this._apiKey = null;
@@ -148,8 +148,9 @@ class DaemonClient {
   }
 
   /** Start connecting (public entry point for multi-instance use). */
-  start() {
+  async start(dataDir?: string) {
     this.destroyed = false;
+    await this.loadApiKey(dataDir);
     this.connect();
   }
 

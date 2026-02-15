@@ -8,11 +8,13 @@ interface InstanceState {
   instances: InstanceConfig[];
   activeId: string | null;
   connectionStatus: Record<string, "connected" | "disconnected" | "connecting">;
+  dataDirs: Record<string, string>;
 
-  addInstance: (instance: InstanceConfig) => void;
+  addInstance: (instance: InstanceConfig, dataDir?: string) => void;
   removeInstance: (id: string) => void;
   setActive: (id: string | null) => void;
   updateInstance: (id: string, patch: Partial<InstanceConfig>) => void;
+  setDataDir: (id: string, dataDir: string) => void;
   initClient: (id: string) => void;
   getActiveClient: () => DaemonClient | undefined;
   loadFromConfig: () => void;
@@ -29,11 +31,13 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
   instances: [],
   activeId: null,
   connectionStatus: {},
+  dataDirs: {},
 
-  addInstance: (instance) => {
+  addInstance: (instance, dataDir?) => {
     set((s) => ({
       instances: [...s.instances, instance],
       activeId: instance.id,
+      ...(dataDir ? { dataDirs: { ...s.dataDirs, [instance.id]: dataDir } } : {}),
     }));
     // Create and init client
     get().initClient(instance.id);
@@ -47,10 +51,13 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
       const instances = s.instances.filter((i) => i.id !== id);
       const status = { ...s.connectionStatus };
       delete status[id];
+      const dirs = { ...s.dataDirs };
+      delete dirs[id];
       return {
         instances,
         activeId: s.activeId === id ? (instances[0]?.id ?? null) : s.activeId,
         connectionStatus: status,
+        dataDirs: dirs,
       };
     });
     get().persistToConfig();
@@ -68,9 +75,17 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
     get().persistToConfig();
   },
 
+  setDataDir: (id, dataDir) => {
+    set((s) => ({
+      dataDirs: { ...s.dataDirs, [id]: dataDir },
+    }));
+  },
+
   initClient: (id) => {
     const instance = get().instances.find((i) => i.id === id);
     if (!instance) return;
+
+    const dataDir = get().dataDirs[id];
 
     set((s) => ({
       connectionStatus: { ...s.connectionStatus, [id]: "connecting" },
@@ -85,7 +100,7 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
         },
       }));
     });
-    client.start();
+    client.start(dataDir);
   },
 
   getActiveClient: () => {

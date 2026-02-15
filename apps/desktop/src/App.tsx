@@ -3,6 +3,7 @@ import Sidebar from "./components/Sidebar";
 import StatusBar from "./components/StatusBar";
 import InstanceTabBar from "./components/InstanceTabBar";
 import EmptyState from "./components/EmptyState";
+import AddInstanceModal from "./components/AddInstanceModal";
 import TunnelDashboard from "./modules/tunnel/TunnelDashboard";
 import DataDashboard from "./modules/data/DataDashboard";
 import WalletPage from "./modules/wallet/WalletPage";
@@ -20,16 +21,15 @@ export type Page = "dashboard" | "tunnel" | "data" | "identity" | "network" | "w
 
 function App() {
   const [page, setPage] = useState<Page>("dashboard");
+  const [showAddModal, setShowAddModal] = useState(false);
   const loadConfig = useConfigStore((s) => s.load);
   const configLoaded = useConfigStore((s) => s.loaded);
   const instances = useInstanceStore((s) => s.instances);
   const activeId = useInstanceStore((s) => s.activeId);
-  // Bootstrap: load config → load identity
+
   useEffect(() => {
     (async () => {
       await loadConfig();
-
-      // Load identity from Tauri backend
       try {
         const identity = await invoke<{ did: string }>("get_identity");
         useIdentityStore.getState().setDid(identity.did);
@@ -39,12 +39,6 @@ function App() {
       }
     })();
   }, [loadConfig]);
-
-  const handleAddInstance = () => {
-    // Just show empty state behavior - let EmptyState handle the UI
-    // If there are already instances, we could show a modal, but for now
-    // we'll use the same empty state approach by temporarily not setting active
-  };
 
   if (!configLoaded) {
     return (
@@ -58,8 +52,9 @@ function App() {
   if (instances.length === 0 || activeId === null) {
     return (
       <div className="flex flex-col h-screen bg-gray-950 text-gray-100">
-        <InstanceTabBar onAddInstance={handleAddInstance} />
+        <InstanceTabBar onAddInstance={() => setShowAddModal(true)} />
         <EmptyState />
+        <AddInstanceModal open={showAddModal} onClose={() => setShowAddModal(false)} />
       </div>
     );
   }
@@ -78,7 +73,7 @@ function App() {
 
   return (
     <div className="flex flex-col h-screen bg-gray-950 text-gray-100">
-      <InstanceTabBar onAddInstance={handleAddInstance} />
+      <InstanceTabBar onAddInstance={() => setShowAddModal(true)} />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar activePage={page} onNavigate={setPage} />
         <main className="flex-1 flex flex-col overflow-hidden">
@@ -88,6 +83,7 @@ function App() {
           <StatusBar />
         </main>
       </div>
+      <AddInstanceModal open={showAddModal} onClose={() => setShowAddModal(false)} />
     </div>
   );
 }
