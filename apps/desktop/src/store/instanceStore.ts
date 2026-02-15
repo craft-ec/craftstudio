@@ -27,7 +27,7 @@ interface InstanceState {
   activityLog: Record<string, ActivityEvent[]>;
   apiKeys: Record<string, string>;
 
-  addInstance: (instance: InstanceConfig, opts?: { apiKey?: string }) => void;
+  addInstance: (instance: InstanceConfig, opts?: { apiKey?: string }) => Promise<void>;
   logActivity: (id: string, message: string, level?: ActivityEvent["level"]) => void;
   removeInstance: (id: string) => void;
   setActive: (id: string | null) => void;
@@ -61,24 +61,37 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
     }));
   },
 
-  addInstance: (instance, opts?) => {
+  addInstance: async (instance, opts?) => {
     const { apiKey } = opts ?? {};
-    set((s) => ({
-      instances: [...s.instances, instance],
-      activeId: instance.id,
-      ...(apiKey ? { apiKeys: { ...s.apiKeys, [instance.id]: apiKey } } : {}),
-    }));
 
-    // Write instance config to {dataDir}/config.json
+    // If a config already exists in the dataDir, READ it instead of overwriting
+    let finalConfig = instance;
     if (instance.dataDir) {
-      writeInstanceConfig(instance.dataDir, instance).catch((e) =>
-        console.error("[instanceStore] Failed to write instance config:", e)
-      );
+      try {
+        const existing = await readInstanceConfig(instance.dataDir);
+        // Check if it has real data (not just defaults)
+        if (existing.capabilities && existing.capabilities.length > 0 && existing.ws_port > 0) {
+          // Merge: existing config wins, but keep id/dataDir from the ref
+          finalConfig = { ...existing, id: instance.id, dataDir: instance.dataDir };
+        } else {
+          // No existing config — write the new one
+          await writeInstanceConfig(instance.dataDir, instance);
+        }
+      } catch {
+        // No config file exists — write the new one
+        await writeInstanceConfig(instance.dataDir, instance).catch((e) =>
+          console.error("[instanceStore] Failed to write instance config:", e)
+        );
+      }
     }
 
-    // Create and init client
-    get().initClient(instance.id);
-    // Persist global config (just the ref)
+    set((s) => ({
+      instances: [...s.instances, finalConfig],
+      activeId: finalConfig.id,
+      ...(apiKey ? { apiKeys: { ...s.apiKeys, [finalConfig.id]: apiKey } } : {}),
+    }));
+
+    get().initClient(finalConfig.id);
     get().persistToConfig();
   },
 
