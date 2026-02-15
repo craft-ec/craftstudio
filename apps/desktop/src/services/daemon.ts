@@ -232,7 +232,7 @@ class DaemonClient {
   }
 
   status() {
-    return this.call<{ total_stored: number; shard_count: number }>("status");
+    return this.call<{ stored_bytes: number; content_count: number; shard_count: number; pinned_count: number }>("status");
   }
 
   // Access

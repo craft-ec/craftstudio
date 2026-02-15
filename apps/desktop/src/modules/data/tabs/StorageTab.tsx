@@ -36,8 +36,9 @@ export default function StorageTab() {
         daemon.listStorageReceipts({ limit: 100 }),
       ]);
       if (status.status === "fulfilled") {
-        setStoredBytes(status.value.total_stored || 0);
+        setStoredBytes(status.value.stored_bytes || 0);
         setShardCount(status.value.shard_count || 0);
+        console.log('daemon status:', status.value);
       }
       if (receiptData.status === "fulfilled") {
         setReceipts(receiptData.value.receipts || []);
