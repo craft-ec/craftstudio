@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Monitor, Activity, HardDrive, ShieldCheck, DollarSign, Users, Clock, Zap } from "lucide-react";
 import { daemon } from "../../services/daemon";
 import { useDaemonStore } from "../../store/daemonStore";
+import { useConfigStore } from "../../store/configStore";
 import StatCard from "../../components/StatCard";
 import DaemonOffline from "../../components/DaemonOffline";
 
@@ -24,12 +25,13 @@ interface ReceiptSummary {
 
 export default function NodePage() {
   const { connected } = useDaemonStore();
-  const [capabilities, setCapabilities] = useState<Capability[]>([
-    { key: "tunnel_relay", label: "Tunnel Relay", enabled: true },
-    { key: "tunnel_exit", label: "Tunnel Exit", enabled: false },
-    { key: "data_storage", label: "Storage Node", enabled: true },
-    { key: "data_relay", label: "Data Relay", enabled: true },
-  ]);
+  const { config, updateSection } = useConfigStore();
+  const capabilities: Capability[] = [
+    { key: "storage", label: "Storage", enabled: config.node.capabilities.storage },
+    { key: "relay", label: "Relay", enabled: config.node.capabilities.relay },
+    { key: "client", label: "Client", enabled: config.node.capabilities.client },
+    { key: "aggregator", label: "Aggregator", enabled: config.node.capabilities.aggregator },
+  ];
   const [peers, setPeers] = useState<Record<string, { capabilities: string[]; last_seen: number }>>({});
   const [channels, setChannels] = useState<ChannelSummary>({ count: 0, totalLocked: 0, totalSpent: 0 });
   const [receipts, setReceipts] = useState<ReceiptSummary>({ total: 0, recent: 0 });
@@ -72,9 +74,9 @@ export default function NodePage() {
   }, [loadNodeData]);
 
   const toggle = (key: string) => {
-    setCapabilities((prev) =>
-      prev.map((c) => (c.key === key ? { ...c, enabled: !c.enabled } : c))
-    );
+    const caps = { ...config.node.capabilities };
+    caps[key as keyof typeof caps] = !caps[key as keyof typeof caps];
+    updateSection('node', { capabilities: caps });
   };
 
   const peerCount = Object.keys(peers).length;

@@ -355,6 +355,11 @@ export default function SettingsPage() {
           <div className="space-y-2">
             <span className="text-sm text-gray-400">Capabilities</span>
             <Toggle
+              label="Client"
+              checked={draft.node.capabilities.client}
+              onChange={(v) => patch((d) => { d.node.capabilities.client = v; })}
+            />
+            <Toggle
               label="Storage Node"
               checked={draft.node.capabilities.storage}
               onChange={(v) => patch((d) => { d.node.capabilities.storage = v; })}
