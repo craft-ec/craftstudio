@@ -5,6 +5,25 @@ import { useDaemonStore } from "../../store/daemonStore";
 import { useConfigStore } from "../../store/configStore";
 import StatCard from "../../components/StatCard";
 import DaemonOffline from "../../components/DaemonOffline";
+import TimeChart from "../../components/TimeChart";
+
+// -- Mock chart data --
+const bandwidthData = Array.from({ length: 24 }, (_, i) => {
+  const h = String(i).padStart(2, "0") + ":00";
+  const base = 50_000_000 + Math.sin(i / 3) * 30_000_000;
+  return { time: h, bytes: Math.round(base + Math.random() * 20_000_000) };
+});
+
+const shardData = [
+  "bafk…a1b2", "bafk…c3d4", "bafk…e5f6", "bafk…7890", "bafk…abcd",
+  "bafk…ef01", "bafk…2345", "bafk…6789", "bafk…face", "bafk…dead",
+].map((cid, i) => ({ cid, shards: Math.round(120 - i * 8 + Math.random() * 15) }));
+
+const pdpData = Array.from({ length: 7 }, (_, i) => {
+  const d = new Date();
+  d.setDate(d.getDate() - 6 + i);
+  return { day: d.toLocaleDateString("en", { weekday: "short" }), rate: +(95 + Math.random() * 5).toFixed(1) };
+});
 
 interface Capability {
   key: string;
@@ -124,6 +143,39 @@ export default function NodePage() {
           <StatCard icon={DollarSign} label="Total Spent" value={String(channels.totalSpent)} color="text-orange-400" />
           <StatCard icon={DollarSign} label="Remaining" value={String(channels.totalLocked - channels.totalSpent)} color="text-green-400" />
         </div>
+      </div>
+
+      {/* Charts */}
+      <div className="grid grid-cols-2 gap-4 mb-6">
+        <TimeChart
+          title="Bandwidth — Bytes Served (24h)"
+          data={bandwidthData}
+          xKey="time"
+          series={[{ key: "bytes", label: "Bytes" }]}
+          formatValue={(v) => {
+            if (v >= 1e9) return `${(v / 1e9).toFixed(1)} GB`;
+            if (v >= 1e6) return `${(v / 1e6).toFixed(0)} MB`;
+            return `${(v / 1e3).toFixed(0)} KB`;
+          }}
+        />
+        <TimeChart
+          title="PDP Pass Rate (7 days)"
+          data={pdpData}
+          xKey="day"
+          series={[{ key: "rate", label: "Pass %" }]}
+          type="area"
+          formatValue={(v) => `${v}%`}
+        />
+      </div>
+      <div className="mb-6">
+        <TimeChart
+          title="Storage Health — Shards per CID (Top 10)"
+          data={shardData}
+          xKey="cid"
+          series={[{ key: "shards", label: "Shards" }]}
+          type="bar"
+          height={200}
+        />
       </div>
 
       {/* Capability Toggles */}

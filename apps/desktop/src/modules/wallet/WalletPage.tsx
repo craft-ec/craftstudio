@@ -6,6 +6,25 @@ import type { Transaction } from "../../store/walletStore";
 import StatCard from "../../components/StatCard";
 import Modal from "../../components/Modal";
 import DaemonOffline from "../../components/DaemonOffline";
+import TimeChart from "../../components/TimeChart";
+
+// -- Mock chart data --
+const earningsData = Array.from({ length: 30 }, (_, i) => {
+  const d = new Date();
+  d.setDate(d.getDate() - 29 + i);
+  return {
+    day: d.toLocaleDateString("en", { month: "short", day: "numeric" }),
+    pdp: +(0.5 + Math.random() * 2).toFixed(2),
+    egress: +(0.1 + Math.random() * 0.8).toFixed(2),
+  };
+});
+
+const poolBalanceData = Array.from({ length: 30 }, (_, i) => {
+  const d = new Date();
+  d.setDate(d.getDate() - 29 + i);
+  const base = 100 - i * 1.5 + Math.random() * 5;
+  return { day: d.toLocaleDateString("en", { month: "short", day: "numeric" }), balance: +Math.max(base, 20).toFixed(2) };
+});
 
 function shortenAddr(addr: string): string {
   if (!addr) return "—";
@@ -110,6 +129,28 @@ export default function WalletPage() {
             Fund Creator Pool
           </button>
         </div>
+      </div>
+
+      {/* Earnings & Pool Charts */}
+      <div className="grid grid-cols-2 gap-4 mb-6">
+        <TimeChart
+          title="Earnings — Last 30 Days (USDC)"
+          data={earningsData}
+          xKey="day"
+          series={[
+            { key: "pdp", label: "PDP Rewards" },
+            { key: "egress", label: "Egress Revenue", color: "#06b6d4" },
+          ]}
+          formatValue={(v) => `$${v.toFixed(2)}`}
+        />
+        <TimeChart
+          title="Creator Pool Balance (USDC)"
+          data={poolBalanceData}
+          xKey="day"
+          series={[{ key: "balance", label: "Balance" }]}
+          type="area"
+          formatValue={(v) => `$${v.toFixed(0)}`}
+        />
       </div>
 
       {/* Transaction History */}
