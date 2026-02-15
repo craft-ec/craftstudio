@@ -78,6 +78,87 @@ pub fn get_daemon_api_key(data_dir: Option<String>) -> Result<String, String> {
         .map_err(|e| format!("Failed to read API key from {}: {}", path.display(), e))
 }
 
+/// A discovered local daemon configuration on disk.
+#[derive(Serialize)]
+pub struct LocalDaemonConfig {
+    /// Absolute path to the data directory
+    pub data_dir: String,
+    /// Display name derived from path
+    pub name: String,
+    /// Whether an api_key file exists (daemon was initialized)
+    pub has_api_key: bool,
+    /// Whether manifests/chunks exist (has data)
+    pub has_data: bool,
+    /// The WS port if we can infer it (from socket name or default)
+    pub ws_port: Option<u16>,
+}
+
+/// Scan well-known locations for existing daemon data directories.
+#[tauri::command]
+pub fn discover_local_daemons() -> Vec<LocalDaemonConfig> {
+    let mut results = Vec::new();
+    let home = match dirs::home_dir() {
+        Some(h) => h,
+        None => return results,
+    };
+
+    // 1. Default: ~/.datacraft
+    let default_dir = home.join(".datacraft");
+    if default_dir.exists() {
+        results.push(probe_daemon_dir(&default_dir, "Default Node", Some(9091)));
+    }
+
+    // 2. CraftStudio-managed: ~/.craftstudio/instances*/
+    let cs_dir = home.join(".craftstudio");
+    if cs_dir.exists() {
+        if let Ok(entries) = fs::read_dir(&cs_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    let name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+                    if name.starts_with("instances") {
+                        // Check if it has daemon data (manifests dir or api_key)
+                        if path.join("api_key").exists() || path.join("manifests").exists() {
+                            let index: u16 = name.trim_start_matches("instances-")
+                                .parse().unwrap_or(0);
+                            let port = 9091 + index;
+                            results.push(probe_daemon_dir(&path, &format!("Instance {}", index), Some(port)));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 3. Temp dirs: /tmp/datacraft-node-*
+    if let Ok(entries) = fs::read_dir("/tmp") {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                let name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+                if name.starts_with("datacraft-node-") {
+                    let index: u16 = name.trim_start_matches("datacraft-node-")
+                        .parse().unwrap_or(0);
+                    let port = 9091 + index;
+                    results.push(probe_daemon_dir(&path, &format!("Test Node {}", index), Some(port)));
+                }
+            }
+        }
+    }
+
+    results
+}
+
+fn probe_daemon_dir(path: &std::path::Path, name: &str, ws_port: Option<u16>) -> LocalDaemonConfig {
+    LocalDaemonConfig {
+        data_dir: path.to_string_lossy().to_string(),
+        name: name.to_string(),
+        has_api_key: path.join("api_key").exists(),
+        has_data: path.join("manifests").exists() || path.join("chunks").exists(),
+        ws_port,
+    }
+}
+
 #[tauri::command]
 pub fn pick_file() -> Option<String> {
     // Use rfd (Rust File Dialog) for native file picker

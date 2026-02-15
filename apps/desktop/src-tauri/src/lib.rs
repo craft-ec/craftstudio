@@ -47,6 +47,7 @@ pub fn run() {
             commands::get_identity,
             commands::get_version,
             commands::get_daemon_api_key,
+            commands::discover_local_daemons,
             commands::pick_file,
             config::get_config,
             config::save_config,
