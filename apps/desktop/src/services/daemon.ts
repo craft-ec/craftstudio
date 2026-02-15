@@ -7,6 +7,7 @@
  * URL is read from config store; call `daemon.setUrl()` to change it.
  */
 
+import { invoke } from '@tauri-apps/api/core';
 import { getConfig } from "./config";
 
 const RECONNECT_MS = 3_000;
@@ -31,6 +32,7 @@ class DaemonClient {
   private eventListeners = new Set<EventListener>();
   private destroyed = false;
   private _url: string;
+  private _apiKey: string | null = null;
 
   get connected(): boolean {
     return this._connected;
@@ -47,10 +49,30 @@ class DaemonClient {
   }
 
   /** Initialize connection. Called after config is loaded. */
-  init() {
+  async init() {
     const cfg = getConfig();
     this._url = `${cfg.daemons.datacraft.url}/ws`;
+    await this.loadApiKey();
     this.connect();
+  }
+
+  /** Load the API key from the daemon's well-known file via Tauri. */
+  private async loadApiKey() {
+    try {
+      this._apiKey = await invoke<string>('get_daemon_api_key');
+    } catch (err) {
+      console.warn('[daemon] Failed to load API key:', err);
+      this._apiKey = null;
+    }
+  }
+
+  /** Build the WebSocket URL with API key query parameter. */
+  private buildWsUrl(): string {
+    if (this._apiKey) {
+      const sep = this._url.includes('?') ? '&' : '?';
+      return `${this._url}${sep}key=${this._apiKey}`;
+    }
+    return this._url;
   }
 
   /** Update the daemon URL and reconnect. */
@@ -71,7 +93,7 @@ class DaemonClient {
   private connect() {
     if (this.destroyed) return;
     try {
-      const ws = new WebSocket(this._url);
+      const ws = new WebSocket(this.buildWsUrl());
 
       ws.onopen = () => {
         this._connected = true;

@@ -1,23 +1,25 @@
-import { Layers, Receipt, Send, ShieldCheck, Clock, CheckCircle, AlertCircle } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Layers, Receipt, Send, ShieldCheck, Clock, CheckCircle, AlertCircle, Inbox } from "lucide-react";
+import { daemon } from "../../../services/daemon";
+import { useDaemonStore } from "../../../store/daemonStore";
 import StatCard from "../../../components/StatCard";
 import DataTable from "../../../components/DataTable";
 
-// Mock data
-const mockAggregator = {
-  epochsProcessed: 127,
-  currentEpoch: 128,
-  receiptsThisEpoch: 4_231,
-  distributionsPosted: 126,
-  proofStatus: "generating" as const, // "idle" | "generating" | "submitted" | "failed"
-};
+interface AggregatorStatus {
+  epochsProcessed: number;
+  currentEpoch: number;
+  receiptsThisEpoch: number;
+  distributionsPosted: number;
+  proofStatus: "idle" | "generating" | "submitted" | "failed";
+}
 
-const mockDistributions = [
-  { epoch: 127, txHash: "5Kx9…vQr7", recipients: 48, totalAmount: 156.30, timestamp: "2025-02-15T12:00:00Z" },
-  { epoch: 126, txHash: "3Mn2…pWe4", recipients: 52, totalAmount: 162.10, timestamp: "2025-02-15T00:00:00Z" },
-  { epoch: 125, txHash: "8Jf4…tYb1", recipients: 45, totalAmount: 148.75, timestamp: "2025-02-14T12:00:00Z" },
-  { epoch: 124, txHash: "2Lp7…kRz9", recipients: 50, totalAmount: 155.00, timestamp: "2025-02-14T00:00:00Z" },
-  { epoch: 123, txHash: "9Xa3…mNc6", recipients: 47, totalAmount: 151.20, timestamp: "2025-02-13T12:00:00Z" },
-];
+interface Distribution {
+  epoch: number;
+  txHash: string;
+  recipients: number;
+  totalAmount: number;
+  timestamp: string;
+}
 
 function ProofStatusBadge({ status }: { status: string }) {
   const styles: Record<string, { icon: typeof CheckCircle; color: string; label: string }> = {
@@ -37,20 +39,95 @@ function ProofStatusBadge({ status }: { status: string }) {
 }
 
 export default function AggregatorTab() {
+  const { connected } = useDaemonStore();
+  const [aggStatus, setAggStatus] = useState<AggregatorStatus | null>(null);
+  const [distributions, setDistributions] = useState<Distribution[]>([]);
+  const [aggAvailable, setAggAvailable] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!connected) return;
+    try {
+      // Try to call aggregator-specific RPC — if the daemon doesn't support it,
+      // we show "Aggregator not running" state
+      const result = await daemon.call<{
+        epochs_processed: number;
+        current_epoch: number;
+        receipts_this_epoch: number;
+        distributions_posted: number;
+        proof_status: string;
+        distributions: Array<{
+          epoch: number;
+          tx_hash: string;
+          recipients: number;
+          total_amount: number;
+          timestamp: string;
+        }>;
+      }>("aggregator.status");
+
+      setAggAvailable(true);
+      setAggStatus({
+        epochsProcessed: result.epochs_processed,
+        currentEpoch: result.current_epoch,
+        receiptsThisEpoch: result.receipts_this_epoch,
+        distributionsPosted: result.distributions_posted,
+        proofStatus: result.proof_status as AggregatorStatus["proofStatus"],
+      });
+      setDistributions(
+        (result.distributions || []).map((d) => ({
+          epoch: d.epoch,
+          txHash: d.tx_hash,
+          recipients: d.recipients,
+          totalAmount: d.total_amount,
+          timestamp: d.timestamp,
+        }))
+      );
+    } catch {
+      // aggregator.status not available — aggregator not running
+      setAggAvailable(false);
+    }
+  }, [connected]);
+
+  useEffect(() => { load(); }, [load]);
+
+  if (!connected) {
+    return (
+      <div>
+        <h2 className="text-lg font-semibold mb-4">Aggregator</h2>
+        <div className="flex flex-col items-center justify-center py-16 text-gray-500">
+          <Inbox size={40} className="mb-3 opacity-50" />
+          <p className="text-sm">Start the daemon to see aggregator data</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!aggAvailable) {
+    return (
+      <div>
+        <h2 className="text-lg font-semibold mb-4">Aggregator</h2>
+        <div className="flex flex-col items-center justify-center py-16 text-gray-500">
+          <Layers size={40} className="mb-3 opacity-50" />
+          <p className="text-sm font-medium">Aggregator not running</p>
+          <p className="text-xs mt-1">Enable the Aggregator capability on the Node page to use this tab</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <h2 className="text-lg font-semibold mb-4">Aggregator</h2>
 
       <div className="grid grid-cols-4 gap-4 mb-6">
-        <StatCard icon={Layers} label="Epochs Processed" value={String(mockAggregator.epochsProcessed)} />
-        <StatCard icon={Receipt} label="Receipts (epoch)" value={String(mockAggregator.receiptsThisEpoch)} sub={`Epoch #${mockAggregator.currentEpoch}`} />
-        <StatCard icon={Send} label="Distributions" value={String(mockAggregator.distributionsPosted)} />
+        <StatCard icon={Layers} label="Epochs Processed" value={String(aggStatus?.epochsProcessed ?? 0)} />
+        <StatCard icon={Receipt} label="Receipts (epoch)" value={String(aggStatus?.receiptsThisEpoch ?? 0)} sub={`Epoch #${aggStatus?.currentEpoch ?? 0}`} />
+        <StatCard icon={Send} label="Distributions" value={String(aggStatus?.distributionsPosted ?? 0)} />
         <div className="bg-gray-900 rounded-lg p-4">
           <div className="flex items-center gap-2 mb-1">
             <ShieldCheck size={16} className="text-craftec-500" />
             <span className="text-sm text-gray-400">Proof Status</span>
           </div>
-          <ProofStatusBadge status={mockAggregator.proofStatus} />
+          <ProofStatusBadge status={aggStatus?.proofStatus ?? "idle"} />
         </div>
       </div>
 
@@ -69,7 +146,7 @@ export default function AggregatorTab() {
             )},
             { key: "timestamp", header: "Time", render: (item) => new Date(String(item.timestamp)).toLocaleString() },
           ]}
-          data={mockDistributions as unknown as Record<string, unknown>[]}
+          data={distributions as unknown as Record<string, unknown>[]}
           emptyMessage="No distributions yet"
         />
       </div>

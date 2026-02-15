@@ -1,30 +1,22 @@
-import { useState } from "react";
-import { Wallet, Copy, DollarSign, ArrowUpRight, ArrowDownLeft, CreditCard, CheckCircle, Clock, XCircle } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Wallet, Copy, DollarSign, ArrowUpRight, ArrowDownLeft, CreditCard, CheckCircle, Clock, XCircle, Inbox } from "lucide-react";
 import { useWalletStore } from "../../store/walletStore";
 import { useDaemonStore } from "../../store/daemonStore";
+import { daemon } from "../../services/daemon";
 import type { Transaction } from "../../store/walletStore";
 import StatCard from "../../components/StatCard";
 import Modal from "../../components/Modal";
 import DaemonOffline from "../../components/DaemonOffline";
-import TimeChart from "../../components/TimeChart";
 
-// -- Mock chart data --
-const earningsData = Array.from({ length: 30 }, (_, i) => {
-  const d = new Date();
-  d.setDate(d.getDate() - 29 + i);
-  return {
-    day: d.toLocaleDateString("en", { month: "short", day: "numeric" }),
-    pdp: +(0.5 + Math.random() * 2).toFixed(2),
-    egress: +(0.1 + Math.random() * 0.8).toFixed(2),
-  };
-});
-
-const poolBalanceData = Array.from({ length: 30 }, (_, i) => {
-  const d = new Date();
-  d.setDate(d.getDate() - 29 + i);
-  const base = 100 - i * 1.5 + Math.random() * 5;
-  return { day: d.toLocaleDateString("en", { month: "short", day: "numeric" }), balance: +Math.max(base, 20).toFixed(2) };
-});
+interface ChannelInfo {
+  channel_id: string;
+  sender: string;
+  receiver: string;
+  locked_amount: number;
+  spent: number;
+  remaining: number;
+  nonce: number;
+}
 
 function shortenAddr(addr: string): string {
   if (!addr) return "—";
@@ -64,6 +56,21 @@ export default function WalletPage() {
   const [fundAmount, setFundAmount] = useState("");
   const [copied, setCopied] = useState(false);
   const [funding, setFunding] = useState(false);
+  const [channels, setChannels] = useState<ChannelInfo[]>([]);
+
+  const loadChannels = useCallback(async () => {
+    if (!connected) return;
+    try {
+      const result = await daemon.listChannels();
+      setChannels(result.channels || []);
+    } catch { /* */ }
+  }, [connected]);
+
+  useEffect(() => { loadChannels(); }, [loadChannels]);
+
+  const totalLocked = channels.reduce((s, c) => s + c.locked_amount, 0);
+  const totalSpent = channels.reduce((s, c) => s + c.spent, 0);
+  const totalRemaining = channels.reduce((s, c) => s + c.remaining, 0);
 
   const handleCopy = () => {
     if (!address) return;
@@ -106,7 +113,7 @@ export default function WalletPage() {
       <div className="bg-gray-900 rounded-xl p-4 mb-6">
         <p className="text-sm text-gray-400 mb-1">Solana Address (derived from identity key)</p>
         <div className="flex items-center gap-2">
-          <span className="font-mono text-sm">{address ? shortenAddr(address) : "Not loaded"}</span>
+          <span className="font-mono text-sm">{address ? shortenAddr(address) : "Connect wallet to view address"}</span>
           {address && (
             <button onClick={handleCopy} className="text-gray-400 hover:text-gray-200" title="Copy address">
               <Copy size={14} />
@@ -118,8 +125,8 @@ export default function WalletPage() {
 
       {/* Balances */}
       <div className="grid grid-cols-3 gap-4 mb-6">
-        <StatCard icon={DollarSign} label="USDC Balance" value={`$${usdcBalance.toFixed(2)}`} />
-        <StatCard icon={Wallet} label="SOL Balance" value={`${solBalance.toFixed(4)} SOL`} sub="for tx fees" />
+        <StatCard icon={DollarSign} label="USDC Balance" value={address ? `$${usdcBalance.toFixed(2)}` : "—"} />
+        <StatCard icon={Wallet} label="SOL Balance" value={address ? `${solBalance.toFixed(4)} SOL` : "—"} sub={address ? "for tx fees" : undefined} />
         <div className="bg-gray-900 rounded-lg p-4 flex items-center justify-center">
           <button
             onClick={() => setShowFund(true)}
@@ -131,33 +138,47 @@ export default function WalletPage() {
         </div>
       </div>
 
-      {/* Earnings & Pool Charts */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
-        <TimeChart
-          title="Earnings — Last 30 Days (USDC)"
-          data={earningsData}
-          xKey="day"
-          series={[
-            { key: "pdp", label: "PDP Rewards" },
-            { key: "egress", label: "Egress Revenue", color: "#06b6d4" },
-          ]}
-          formatValue={(v) => `$${v.toFixed(2)}`}
-        />
-        <TimeChart
-          title="Creator Pool Balance (USDC)"
-          data={poolBalanceData}
-          xKey="day"
-          series={[{ key: "balance", label: "Balance" }]}
-          type="area"
-          formatValue={(v) => `$${v.toFixed(0)}`}
-        />
+      {/* Channel Summary */}
+      <div className="bg-gray-900 rounded-xl p-4 mb-6">
+        <h2 className="text-lg font-semibold mb-3">Payment Channels</h2>
+        {channels.length > 0 ? (
+          <>
+            <div className="grid grid-cols-3 gap-4 mb-4">
+              <StatCard icon={DollarSign} label="Total Locked" value={String(totalLocked)} color="text-craftec-500" />
+              <StatCard icon={DollarSign} label="Total Spent" value={String(totalSpent)} color="text-orange-400" />
+              <StatCard icon={DollarSign} label="Remaining" value={String(totalRemaining)} color="text-green-400" />
+            </div>
+            <div className="space-y-2">
+              {channels.map((ch) => (
+                <div key={ch.channel_id} className="flex items-center justify-between bg-gray-800/50 rounded-lg px-3 py-2">
+                  <div>
+                    <p className="text-sm font-mono text-gray-300">{shortenAddr(ch.channel_id)}</p>
+                    <p className="text-xs text-gray-500">→ {shortenAddr(ch.receiver)}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-craftec-400">{ch.locked_amount} locked</p>
+                    <p className="text-xs text-gray-500">{ch.remaining} remaining</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-8 text-gray-500">
+            <Inbox size={32} className="mb-2 opacity-50" />
+            <p className="text-sm">{connected ? "No payment channels open" : "Start the daemon to see channel data"}</p>
+          </div>
+        )}
       </div>
 
       {/* Transaction History */}
       <div className="bg-gray-900 rounded-xl p-4">
         <h2 className="text-lg font-semibold mb-3">Transaction History</h2>
         {transactions.length === 0 ? (
-          <p className="text-sm text-gray-500">No transactions yet</p>
+          <div className="flex flex-col items-center justify-center py-8 text-gray-500">
+            <Inbox size={32} className="mb-2 opacity-50" />
+            <p className="text-sm">No transactions yet</p>
+          </div>
         ) : (
           <div className="space-y-2">
             {transactions.map((tx) => {
@@ -203,7 +224,7 @@ export default function WalletPage() {
               step="0.01"
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-craftec-500"
             />
-            <p className="text-xs text-gray-500 mt-1">Available: ${usdcBalance.toFixed(2)} USDC</p>
+            <p className="text-xs text-gray-500 mt-1">Available: {address ? `$${usdcBalance.toFixed(2)} USDC` : "Connect wallet first"}</p>
           </div>
           <button
             onClick={handleFund}

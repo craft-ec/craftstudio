@@ -7,6 +7,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::get_identity,
             commands::get_version,
+            commands::get_daemon_api_key,
             commands::pick_file,
             config::get_config,
             config::save_config,

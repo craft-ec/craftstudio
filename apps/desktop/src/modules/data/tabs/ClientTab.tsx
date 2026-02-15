@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Upload, Lock, Unlock, UserPlus, UserMinus, Download, DollarSign, FolderOpen } from "lucide-react";
 import { useDataCraftStore } from "../../../store/dataCraftStore";
 import { useDaemonStore } from "../../../store/daemonStore";
+import { daemon } from "../../../services/daemon";
 import StatCard from "../../../components/StatCard";
 import DataTable from "../../../components/DataTable";
 import Modal from "../../../components/Modal";
@@ -18,18 +19,15 @@ function shortenCid(cid: string): string {
   return cid.length > 16 ? `${cid.slice(0, 8)}...${cid.slice(-8)}` : cid;
 }
 
-// Mock download history
-const mockDownloads = [
-  { cid: "bafk…abc123def456", name: "dataset-v2.csv", size: 15_400_000, fetchedAt: "2025-02-14T10:30:00Z" },
-  { cid: "bafk…789xyz000111", name: "model-weights.bin", size: 245_000_000, fetchedAt: "2025-02-13T16:45:00Z" },
-  { cid: "bafk…feed00dead00", name: "images.tar.gz", size: 89_000_000, fetchedAt: "2025-02-12T08:20:00Z" },
-];
-
-// Mock pool data
-const mockPools = [
-  { cid: "bafk…a1b2c3d4e5f6", name: "report.pdf", balance: 12.50, funded: 25.00 },
-  { cid: "bafk…1122334455aa", name: "dataset-v2.csv", balance: 8.75, funded: 10.00 },
-];
+interface ChannelInfo {
+  channel_id: string;
+  sender: string;
+  receiver: string;
+  locked_amount: number;
+  spent: number;
+  remaining: number;
+  nonce: number;
+}
 
 export default function ClientTab() {
   const { content, accessLists, loading, error, loadContent, publishContent, grantAccess, revokeAccess, loadAccessList } = useDataCraftStore();
@@ -40,16 +38,27 @@ export default function ClientTab() {
   const [encrypt, setEncrypt] = useState(false);
   const [accessDid, setAccessDid] = useState("");
   const [publishing, setPublishing] = useState(false);
+  const [channels, setChannels] = useState<ChannelInfo[]>([]);
 
   useEffect(() => {
     if (connected) loadContent();
   }, [connected, loadContent]);
 
+  const loadChannels = useCallback(async () => {
+    if (!connected) return;
+    try {
+      const result = await daemon.listChannels();
+      setChannels(result.channels || []);
+    } catch { /* */ }
+  }, [connected]);
+
+  useEffect(() => { loadChannels(); }, [loadChannels]);
+
   useEffect(() => {
     if (showAccess && connected) loadAccessList(showAccess);
   }, [showAccess, connected, loadAccessList]);
 
-  const totalPool = content.reduce((s, c) => s + c.poolBalance, 0) + mockPools.reduce((s, p) => s + p.balance, 0);
+  const totalLocked = channels.reduce((s, c) => s + c.locked_amount, 0);
 
   const handlePublish = async () => {
     if (!filePath.trim()) return;
@@ -100,8 +109,8 @@ export default function ClientTab() {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4 mb-6">
         <StatCard icon={Upload} label="Published" value={String(content.length)} />
-        <StatCard icon={Download} label="Fetched" value={String(mockDownloads.length)} />
-        <StatCard icon={DollarSign} label="Pool Balance" value={`$${totalPool.toFixed(2)}`} color="text-green-400" />
+        <StatCard icon={Download} label="Channels" value={String(channels.length)} />
+        <StatCard icon={DollarSign} label="Total Locked" value={totalLocked > 0 ? String(totalLocked) : "0"} color="text-green-400" />
       </div>
 
       {/* My Published Content */}
@@ -122,40 +131,23 @@ export default function ClientTab() {
             )},
           ]}
           data={content as unknown as Record<string, unknown>[]}
-          emptyMessage={connected ? "No content published yet" : "Connect daemon to view content"}
+          emptyMessage={connected ? "No content published yet" : "Start the daemon to see live data"}
         />
       </div>
 
-      {/* Download History */}
-      <div className="bg-gray-900 rounded-xl p-4 mb-6">
-        <h3 className="font-semibold mb-3">Download History</h3>
-        <DataTable
-          columns={[
-            { key: "name", header: "Name" },
-            { key: "cid", header: "CID", render: (item) => <span className="font-mono text-xs text-gray-400">{shortenCid(String(item.cid))}</span> },
-            { key: "size", header: "Size", render: (item) => formatBytes(Number(item.size)) },
-            { key: "fetchedAt", header: "Fetched", render: (item) => new Date(String(item.fetchedAt)).toLocaleDateString() },
-          ]}
-          data={mockDownloads as unknown as Record<string, unknown>[]}
-          emptyMessage="No content fetched yet"
-        />
-      </div>
-
-      {/* Creator Pool Management */}
+      {/* Payment Channels */}
       <div className="bg-gray-900 rounded-xl p-4">
-        <h3 className="font-semibold mb-3">Creator Pools</h3>
+        <h3 className="font-semibold mb-3">Payment Channels</h3>
         <DataTable
           columns={[
-            { key: "name", header: "Content" },
-            { key: "cid", header: "CID", render: (item) => <span className="font-mono text-xs text-gray-400">{shortenCid(String(item.cid))}</span> },
-            { key: "balance", header: "Balance", render: (item) => <span className="text-green-400">${Number(item.balance).toFixed(2)}</span> },
-            { key: "funded", header: "Total Funded", render: (item) => `$${Number(item.funded).toFixed(2)}` },
-            { key: "actions", header: "", render: () => (
-              <button className="text-xs text-craftec-400 hover:text-craftec-300">Fund</button>
-            )},
+            { key: "channel_id", header: "Channel", render: (item) => <span className="font-mono text-xs text-gray-400">{shortenCid(String(item.channel_id))}</span> },
+            { key: "receiver", header: "Peer", render: (item) => <span className="font-mono text-xs text-gray-400">{shortenCid(String(item.receiver))}</span> },
+            { key: "locked_amount", header: "Locked", render: (item) => <span className="text-craftec-400">{String(item.locked_amount)}</span> },
+            { key: "spent", header: "Spent", render: (item) => String(item.spent) },
+            { key: "remaining", header: "Remaining", render: (item) => <span className="text-green-400">{String(item.remaining)}</span> },
           ]}
-          data={mockPools as unknown as Record<string, unknown>[]}
-          emptyMessage="No creator pools"
+          data={channels as unknown as Record<string, unknown>[]}
+          emptyMessage={connected ? "No payment channels open" : "Start the daemon to see live data"}
         />
       </div>
 

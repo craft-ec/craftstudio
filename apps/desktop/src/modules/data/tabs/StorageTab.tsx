@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { HardDrive, ShieldCheck, DollarSign, Activity } from "lucide-react";
+import { HardDrive, ShieldCheck, DollarSign, Activity, Inbox } from "lucide-react";
 import { daemon } from "../../../services/daemon";
 import { useDaemonStore } from "../../../store/daemonStore";
 import StatCard from "../../../components/StatCard";
@@ -12,41 +12,86 @@ function formatBytes(bytes: number): string {
   return `${bytes} B`;
 }
 
-// Mock data
-const bandwidthData = Array.from({ length: 24 }, (_, i) => {
-  const h = String(i).padStart(2, "0") + ":00";
-  const base = 50_000_000 + Math.sin(i / 3) * 30_000_000;
-  return { time: h, bytes: Math.round(base + Math.random() * 20_000_000) };
-});
-
-const shardHealthData = [
-  "bafk…a1b2", "bafk…c3d4", "bafk…e5f6", "bafk…7890", "bafk…abcd",
-  "bafk…ef01", "bafk…2345", "bafk…6789", "bafk…face", "bafk…dead",
-].map((cid, i) => ({ cid, shards: Math.round(120 - i * 8 + Math.random() * 15) }));
-
-const pdpData = Array.from({ length: 7 }, (_, i) => {
-  const d = new Date(); d.setDate(d.getDate() - 6 + i);
-  return { day: d.toLocaleDateString("en", { weekday: "short" }), rate: +(95 + Math.random() * 5).toFixed(1) };
-});
-
-// Mock earnings
-const mockEarnings = { total: 42.75, last24h: 3.20, challenges: 1847, passRate: 98.2 };
+interface StorageReceipt {
+  cid: string;
+  storage_node: string;
+  challenger: string;
+  shard_index: number;
+  timestamp: number;
+  signed: boolean;
+}
 
 export default function StorageTab() {
   const { connected } = useDaemonStore();
   const [storedBytes, setStoredBytes] = useState(0);
   const [shardCount, setShardCount] = useState(0);
+  const [receipts, setReceipts] = useState<StorageReceipt[]>([]);
+  const [totalReceipts, setTotalReceipts] = useState(0);
 
   const load = useCallback(async () => {
     if (!connected) return;
     try {
-      const status = await daemon.status();
-      setStoredBytes(status.total_stored || 0);
-      setShardCount(status.shard_count || 0);
+      const [status, receiptData] = await Promise.allSettled([
+        daemon.status(),
+        daemon.listStorageReceipts({ limit: 100 }),
+      ]);
+      if (status.status === "fulfilled") {
+        setStoredBytes(status.value.total_stored || 0);
+        setShardCount(status.value.shard_count || 0);
+      }
+      if (receiptData.status === "fulfilled") {
+        setReceipts(receiptData.value.receipts || []);
+        setTotalReceipts(receiptData.value.total || 0);
+      }
     } catch { /* */ }
   }, [connected]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Build PDP chart from receipt timestamps (group by day)
+  const pdpChartData = (() => {
+    if (receipts.length === 0) return [];
+    const byDay = new Map<string, { total: number; signed: number }>();
+    for (const r of receipts) {
+      const day = new Date(r.timestamp * 1000).toLocaleDateString("en", { weekday: "short" });
+      const entry = byDay.get(day) || { total: 0, signed: 0 };
+      entry.total++;
+      if (r.signed) entry.signed++;
+      byDay.set(day, entry);
+    }
+    return Array.from(byDay.entries()).map(([day, { total, signed }]) => ({
+      day,
+      rate: total > 0 ? +((signed / total) * 100).toFixed(1) : 0,
+    }));
+  })();
+
+  // Build bandwidth-like chart from receipt timestamps (group by hour, last 24h)
+  const bandwidthChartData = (() => {
+    if (receipts.length === 0) return [];
+    const now = Date.now() / 1000;
+    const last24h = receipts.filter((r) => now - r.timestamp < 86400);
+    if (last24h.length === 0) return [];
+    const byHour = new Map<string, number>();
+    for (const r of last24h) {
+      const h = new Date(r.timestamp * 1000).getHours();
+      const key = String(h).padStart(2, "0") + ":00";
+      byHour.set(key, (byHour.get(key) || 0) + 1);
+    }
+    return Array.from(byHour.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([time, count]) => ({ time, challenges: count }));
+  })();
+
+  const passRate = receipts.length > 0
+    ? +((receipts.filter((r) => r.signed).length / receipts.length) * 100).toFixed(1)
+    : 0;
+
+  const EmptyState = ({ message }: { message: string }) => (
+    <div className="flex flex-col items-center justify-center py-8 text-gray-500">
+      <Inbox size={32} className="mb-2 opacity-50" />
+      <p className="text-sm">{message}</p>
+    </div>
+  );
 
   return (
     <div>
@@ -56,46 +101,57 @@ export default function StorageTab() {
       <div className="grid grid-cols-4 gap-4 mb-6">
         <StatCard icon={HardDrive} label="Stored" value={formatBytes(storedBytes)} />
         <StatCard icon={HardDrive} label="Shards" value={String(shardCount)} />
-        <StatCard icon={ShieldCheck} label="PDP Pass Rate" value={`${mockEarnings.passRate}%`} color="text-green-400" />
-        <StatCard icon={DollarSign} label="Earnings" value={`$${mockEarnings.total.toFixed(2)}`} sub={`$${mockEarnings.last24h.toFixed(2)} last 24h`} color="text-green-400" />
+        <StatCard icon={ShieldCheck} label="PDP Pass Rate" value={receipts.length > 0 ? `${passRate}%` : "—"} color="text-green-400" />
+        <StatCard icon={DollarSign} label="Receipts" value={String(totalReceipts)} sub={connected ? undefined : "offline"} />
       </div>
 
       {/* PDP Stats */}
       <div className="bg-gray-900 rounded-xl p-4 mb-6">
         <h3 className="font-semibold mb-3">PDP Statistics</h3>
         <div className="grid grid-cols-2 gap-4">
-          <StatCard icon={ShieldCheck} label="Challenges Served" value={String(mockEarnings.challenges)} />
-          <StatCard icon={Activity} label="Pass Rate (7d avg)" value={`${mockEarnings.passRate}%`} color="text-green-400" />
+          <StatCard icon={ShieldCheck} label="Challenges Served" value={String(totalReceipts)} />
+          <StatCard icon={Activity} label="Pass Rate" value={receipts.length > 0 ? `${passRate}%` : "—"} color="text-green-400" />
         </div>
       </div>
 
       {/* Charts */}
       <div className="grid grid-cols-2 gap-4 mb-6">
-        <TimeChart
-          title="Bandwidth — Bytes Served (24h)"
-          data={bandwidthData}
-          xKey="time"
-          series={[{ key: "bytes", label: "Bytes" }]}
-          formatValue={(v) => v >= 1e9 ? `${(v / 1e9).toFixed(1)} GB` : v >= 1e6 ? `${(v / 1e6).toFixed(0)} MB` : `${(v / 1e3).toFixed(0)} KB`}
-        />
-        <TimeChart
-          title="PDP Pass Rate (7 days)"
-          data={pdpData}
-          xKey="day"
-          series={[{ key: "rate", label: "Pass %" }]}
-          type="area"
-          formatValue={(v) => `${v}%`}
-        />
+        {bandwidthChartData.length > 0 ? (
+          <TimeChart
+            title="Challenges — Last 24h"
+            data={bandwidthChartData}
+            xKey="time"
+            series={[{ key: "challenges", label: "Challenges" }]}
+            formatValue={(v) => String(Math.round(v))}
+          />
+        ) : (
+          <div className="bg-gray-900 rounded-xl p-4">
+            <h3 className="font-semibold mb-2">Challenges — Last 24h</h3>
+            <EmptyState message="No challenge data yet" />
+          </div>
+        )}
+        {pdpChartData.length > 0 ? (
+          <TimeChart
+            title="PDP Pass Rate by Day"
+            data={pdpChartData}
+            xKey="day"
+            series={[{ key: "rate", label: "Pass %" }]}
+            type="area"
+            formatValue={(v) => `${v}%`}
+          />
+        ) : (
+          <div className="bg-gray-900 rounded-xl p-4">
+            <h3 className="font-semibold mb-2">PDP Pass Rate by Day</h3>
+            <EmptyState message="No PDP data yet" />
+          </div>
+        )}
       </div>
 
-      <TimeChart
-        title="Storage Health — Shards per CID (Top 10)"
-        data={shardHealthData}
-        xKey="cid"
-        series={[{ key: "shards", label: "Shards" }]}
-        type="bar"
-        height={200}
-      />
+      {!connected && (
+        <div className="bg-gray-900 rounded-xl p-4 text-center text-sm text-gray-500">
+          Start the daemon to see live storage data
+        </div>
+      )}
     </div>
   );
 }

@@ -49,8 +49,8 @@ export default function NodePage() {
         });
       }
       if (statusData.status === "fulfilled") {
-        // Mock uptime since daemon.status() doesn't expose started_at yet
-        setUptime("2h 34m");
+        // daemon.status() doesn't expose started_at yet — show connected state
+        setUptime(connected ? "Connected" : "—");
       }
     } catch { /* */ }
   }, [connected]);
