@@ -18,9 +18,8 @@ export interface CraftStudioConfig {
 
   node: {
     capabilities: {
-      storage: boolean;
-      relay: boolean;
       client: boolean;
+      storage: boolean;
       aggregator: boolean;
     };
     storagePath: string;
@@ -49,7 +48,7 @@ export const DEFAULT_CONFIG: CraftStudioConfig = {
     tunnelcraft: { url: 'ws://127.0.0.1:9092', autoConnect: false },
   },
   node: {
-    capabilities: { storage: false, relay: false, client: true, aggregator: false },
+    capabilities: { client: true, storage: false, aggregator: false },
     storagePath: '~/.craftstudio/storage',
     maxStorageGB: 50,
     port: 4001,

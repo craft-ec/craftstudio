@@ -22,9 +22,8 @@ export default function NodePage() {
   const { connected } = useDaemonStore();
   const { config, updateSection } = useConfigStore();
   const capabilities: Capability[] = [
-    { key: "storage", label: "Storage", enabled: config.node.capabilities.storage },
-    { key: "relay", label: "Relay", enabled: config.node.capabilities.relay },
     { key: "client", label: "Client", enabled: config.node.capabilities.client },
+    { key: "storage", label: "Storage", enabled: config.node.capabilities.storage },
     { key: "aggregator", label: "Aggregator", enabled: config.node.capabilities.aggregator },
   ];
   const [peers, setPeers] = useState<Record<string, { capabilities: string[]; last_seen: number }>>({});

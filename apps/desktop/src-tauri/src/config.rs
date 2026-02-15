@@ -19,7 +19,7 @@ fn default_config_json() -> String {
             "tunnelcraft": { "url": "ws://127.0.0.1:9092", "autoConnect": false }
         },
         "node": {
-            "capabilities": { "storage": false, "relay": false, "aggregator": false },
+            "capabilities": { "client": true, "storage": false, "aggregator": false },
             "storagePath": "~/.craftstudio/storage",
             "maxStorageGB": 50,
             "port": 4001

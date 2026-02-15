@@ -1,10 +1,9 @@
-import { Database, MonitorSmartphone, HardDrive, Radio, Layers } from "lucide-react";
+import { Database, MonitorSmartphone, HardDrive, Layers } from "lucide-react";
 import { useConfigStore } from "../../store/configStore";
 import DaemonOffline from "../../components/DaemonOffline";
 import Tabs, { TabDef } from "../../components/Tabs";
 import ClientTab from "./tabs/ClientTab";
 import StorageTab from "./tabs/StorageTab";
-import RelayTab from "./tabs/RelayTab";
 import AggregatorTab from "./tabs/AggregatorTab";
 
 export default function DataDashboard() {
@@ -14,7 +13,6 @@ export default function DataDashboard() {
   const tabs: TabDef[] = [
     { key: "client", label: "Client", icon: <MonitorSmartphone size={16} /> },
     ...(caps.storage ? [{ key: "storage", label: "Storage", icon: <HardDrive size={16} /> }] : []),
-    ...(caps.relay ? [{ key: "relay", label: "Relay", icon: <Radio size={16} /> }] : []),
     ...(caps.aggregator ? [{ key: "aggregator", label: "Aggregator", icon: <Layers size={16} /> }] : []),
   ];
 
@@ -31,7 +29,6 @@ export default function DataDashboard() {
           switch (active) {
             case "client": return <ClientTab />;
             case "storage": return <StorageTab />;
-            case "relay": return <RelayTab />;
             case "aggregator": return <AggregatorTab />;
             default: return null;
           }

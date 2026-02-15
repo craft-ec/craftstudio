@@ -365,11 +365,6 @@ export default function SettingsPage() {
               onChange={(v) => patch((d) => { d.node.capabilities.storage = v; })}
             />
             <Toggle
-              label="Relay Node"
-              checked={draft.node.capabilities.relay}
-              onChange={(v) => patch((d) => { d.node.capabilities.relay = v; })}
-            />
-            <Toggle
               label="Aggregator"
               checked={draft.node.capabilities.aggregator}
               onChange={(v) => patch((d) => { d.node.capabilities.aggregator = v; })}
