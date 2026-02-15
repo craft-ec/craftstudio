@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { daemon } from "../services/daemon";
 
 export interface ContentItem {
   cid: string;
@@ -19,85 +20,118 @@ export interface AccessEntry {
 interface DataCraftState {
   content: ContentItem[];
   accessLists: Record<string, AccessEntry[]>;
-  publishContent: (name: string, encrypted: boolean) => void;
-  grantAccess: (cid: string, did: string) => void;
-  revokeAccess: (cid: string, did: string) => void;
+  loading: boolean;
+  error: string | null;
+
+  loadContent: () => Promise<void>;
+  publishContent: (path: string, encrypted: boolean) => Promise<void>;
+  grantAccess: (cid: string, did: string) => Promise<void>;
+  revokeAccess: (cid: string, did: string) => Promise<void>;
+  loadAccessList: (cid: string) => Promise<void>;
 }
 
-const mockContent: ContentItem[] = [
-  {
-    cid: "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi",
-    name: "project-report.pdf",
-    size: 2_450_000,
-    encrypted: true,
-    shards: 8,
-    healthRatio: 1.0,
-    poolBalance: 5.25,
-    publishedAt: "2026-02-10T08:30:00Z",
-  },
-  {
-    cid: "bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenpcqf4te",
-    name: "dataset-v2.csv",
-    size: 15_800_000,
-    encrypted: false,
-    shards: 24,
-    healthRatio: 0.92,
-    poolBalance: 12.50,
-    publishedAt: "2026-02-08T14:15:00Z",
-  },
-  {
-    cid: "bafybeiczsscdsbs7ffqz55asqdf3smv6klcw3gofszvwlyarci47bgf354",
-    name: "model-weights.bin",
-    size: 128_000_000,
-    encrypted: true,
-    shards: 96,
-    healthRatio: 0.88,
-    poolBalance: 45.00,
-    publishedAt: "2026-01-28T22:00:00Z",
-  },
-];
-
-const mockAccessLists: Record<string, AccessEntry[]> = {
-  "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi": [
-    { did: "did:craftec:7sK9x...mQ3p", grantedAt: "2026-02-11T10:00:00Z" },
-    { did: "did:craftec:3nR2y...kL8w", grantedAt: "2026-02-12T16:30:00Z" },
-  ],
-};
-
 export const useDataCraftStore = create<DataCraftState>((set) => ({
-  content: mockContent,
-  accessLists: mockAccessLists,
-  publishContent: (name, encrypted) =>
-    set((state) => ({
-      content: [
-        {
-          cid: `bafyrei${Math.random().toString(36).slice(2, 20)}`,
-          name,
-          size: Math.floor(Math.random() * 50_000_000),
-          encrypted,
-          shards: Math.floor(Math.random() * 30) + 4,
-          healthRatio: 1.0,
-          poolBalance: 0,
-          publishedAt: new Date().toISOString(),
-        },
-        ...state.content,
-      ],
-    })),
-  grantAccess: (cid, did) =>
-    set((state) => ({
-      accessLists: {
-        ...state.accessLists,
-        [cid]: [
-          ...(state.accessLists[cid] || []),
-          { did, grantedAt: new Date().toISOString() },
+  content: [],
+  accessLists: {},
+  loading: false,
+  error: null,
+
+  loadContent: async () => {
+    set({ loading: true, error: null });
+    try {
+      const items = await daemon.listContent();
+      const content: ContentItem[] = (items || []).map((item) => ({
+        cid: item.cid,
+        name: item.name || item.cid.slice(0, 12),
+        size: item.size,
+        encrypted: false, // daemon doesn't expose this in list yet
+        shards: item.chunks,
+        healthRatio: 1.0,
+        poolBalance: 0,
+        publishedAt: new Date().toISOString(),
+      }));
+      set({ content, loading: false });
+    } catch (e) {
+      set({ loading: false, error: (e as Error).message });
+    }
+  },
+
+  publishContent: async (path, encrypted) => {
+    set({ error: null });
+    try {
+      const result = await daemon.publish(path, encrypted);
+      // Add to local list immediately
+      set((state) => ({
+        content: [
+          {
+            cid: result.cid,
+            name: path.split("/").pop() || path,
+            size: result.size,
+            encrypted,
+            shards: result.chunks,
+            healthRatio: 1.0,
+            poolBalance: 0,
+            publishedAt: new Date().toISOString(),
+          },
+          ...state.content,
         ],
-      },
-    })),
-  revokeAccess: (cid, did) =>
-    set((state) => ({
-      accessLists: {
-        ...state.accessLists,
-        [cid]: (state.accessLists[cid] || []).filter((e) => e.did !== did),
-      },
-    })),
+      }));
+    } catch (e) {
+      set({ error: (e as Error).message });
+      throw e;
+    }
+  },
+
+  grantAccess: async (cid, did) => {
+    set({ error: null });
+    try {
+      // For now we pass empty strings for secrets - the UI will need to
+      // provide these from the identity store in a future iteration
+      await daemon.grantAccess(cid, "", did, "");
+      // Optimistic update
+      set((state) => ({
+        accessLists: {
+          ...state.accessLists,
+          [cid]: [
+            ...(state.accessLists[cid] || []),
+            { did, grantedAt: new Date().toISOString() },
+          ],
+        },
+      }));
+    } catch (e) {
+      set({ error: (e as Error).message });
+      throw e;
+    }
+  },
+
+  revokeAccess: async (cid, did) => {
+    set({ error: null });
+    try {
+      await daemon.revokeAccess(cid, did);
+      set((state) => ({
+        accessLists: {
+          ...state.accessLists,
+          [cid]: (state.accessLists[cid] || []).filter((e) => e.did !== did),
+        },
+      }));
+    } catch (e) {
+      set({ error: (e as Error).message });
+      throw e;
+    }
+  },
+
+  loadAccessList: async (cid) => {
+    try {
+      const result = await daemon.listAccess(cid);
+      const entries: AccessEntry[] = (result.authorized || []).map((did) => ({
+        did,
+        grantedAt: "", // daemon doesn't track grant time
+      }));
+      set((state) => ({
+        accessLists: { ...state.accessLists, [cid]: entries },
+      }));
+    } catch {
+      // Silently fail - will show empty list
+    }
+  },
 }));

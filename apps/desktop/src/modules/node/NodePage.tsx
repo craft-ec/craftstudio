@@ -1,6 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Monitor, Activity, HardDrive, ShieldCheck, DollarSign, Users, Clock, Zap } from "lucide-react";
+import { daemon } from "../../services/daemon";
+import { useDaemonStore } from "../../store/daemonStore";
 import StatCard from "../../components/StatCard";
+import DaemonOffline from "../../components/DaemonOffline";
 
 interface Capability {
   key: string;
@@ -8,13 +11,65 @@ interface Capability {
   enabled: boolean;
 }
 
+interface ChannelSummary {
+  count: number;
+  totalLocked: number;
+  totalSpent: number;
+}
+
+interface ReceiptSummary {
+  total: number;
+  recent: number; // last 24h
+}
+
 export default function NodePage() {
+  const { connected } = useDaemonStore();
   const [capabilities, setCapabilities] = useState<Capability[]>([
     { key: "tunnel_relay", label: "Tunnel Relay", enabled: true },
     { key: "tunnel_exit", label: "Tunnel Exit", enabled: false },
     { key: "data_storage", label: "Storage Node", enabled: true },
     { key: "data_relay", label: "Data Relay", enabled: true },
   ]);
+  const [peers, setPeers] = useState<Record<string, { capabilities: string[]; last_seen: number }>>({});
+  const [channels, setChannels] = useState<ChannelSummary>({ count: 0, totalLocked: 0, totalSpent: 0 });
+  const [receipts, setReceipts] = useState<ReceiptSummary>({ total: 0, recent: 0 });
+  const [storedBytes, setStoredBytes] = useState(0);
+  const [shardCount, setShardCount] = useState(0);
+
+  const loadNodeData = useCallback(async () => {
+    if (!connected) return;
+    try {
+      const [peersData, channelData, receiptData, statusData] = await Promise.allSettled([
+        daemon.listPeers(),
+        daemon.listChannels(),
+        daemon.listStorageReceipts({ limit: 1, offset: 0 }),
+        daemon.status(),
+      ]);
+
+      if (peersData.status === "fulfilled") setPeers(peersData.value || {});
+      if (channelData.status === "fulfilled") {
+        const chs = channelData.value.channels || [];
+        setChannels({
+          count: chs.length,
+          totalLocked: chs.reduce((s, c) => s + c.locked_amount, 0),
+          totalSpent: chs.reduce((s, c) => s + c.spent, 0),
+        });
+      }
+      if (receiptData.status === "fulfilled") {
+        setReceipts({ total: receiptData.value.total, recent: receiptData.value.receipts.length });
+      }
+      if (statusData.status === "fulfilled") {
+        setStoredBytes(statusData.value.total_stored || 0);
+        setShardCount(statusData.value.shard_count || 0);
+      }
+    } catch {
+      // individual failures handled by allSettled
+    }
+  }, [connected]);
+
+  useEffect(() => {
+    loadNodeData();
+  }, [loadNodeData]);
 
   const toggle = (key: string) => {
     setCapabilities((prev) =>
@@ -22,17 +77,29 @@ export default function NodePage() {
     );
   };
 
+  const peerCount = Object.keys(peers).length;
+  const storagePeers = Object.values(peers).filter((p) => p.capabilities.includes("Storage")).length;
+
+  function formatBytes(bytes: number): string {
+    if (bytes >= 1_000_000_000) return `${(bytes / 1_000_000_000).toFixed(1)} GB`;
+    if (bytes >= 1_000_000) return `${(bytes / 1_000_000).toFixed(1)} MB`;
+    if (bytes >= 1_000) return `${(bytes / 1_000).toFixed(1)} KB`;
+    return `${bytes} B`;
+  }
+
   return (
     <div className="max-w-4xl mx-auto">
+      <DaemonOffline />
+
       <h1 className="text-2xl font-bold mb-6 flex items-center gap-2">
         <Monitor className="text-craftec-500" /> Dashboard
       </h1>
 
       {/* Node Status */}
       <div className="grid grid-cols-4 gap-4 mb-6">
-        <StatCard icon={Activity} label="Status" value="Online" color="text-green-400" />
-        <StatCard icon={Users} label="Peers" value="12" sub="3 relay, 9 storage" />
-        <StatCard icon={Clock} label="Uptime" value="4d 7h 23m" />
+        <StatCard icon={Activity} label="Status" value={connected ? "Online" : "Offline"} color={connected ? "text-green-400" : "text-red-400"} />
+        <StatCard icon={Users} label="Peers" value={String(peerCount)} sub={`${storagePeers} storage`} />
+        <StatCard icon={Clock} label="Channels" value={String(channels.count)} sub={`${channels.totalLocked} locked`} />
         <StatCard icon={Zap} label="Capabilities" value={`${capabilities.filter((c) => c.enabled).length}/4`} />
       </div>
 
@@ -40,20 +107,20 @@ export default function NodePage() {
       <div className="bg-gray-900 rounded-xl p-4 mb-6">
         <h2 className="text-lg font-semibold mb-3">Storage Stats</h2>
         <div className="grid grid-cols-4 gap-4">
-          <StatCard icon={HardDrive} label="Total Stored" value="2.4 GB" sub="of 50 GB limit" />
-          <StatCard icon={HardDrive} label="Shards Served" value="1,247" sub="last 24h" />
-          <StatCard icon={ShieldCheck} label="PDP Pass Rate" value="98.7%" color="text-green-400" sub="142/144 challenges" />
-          <StatCard icon={Activity} label="Bandwidth Used" value="18.3 GB" sub="this month" />
+          <StatCard icon={HardDrive} label="Total Stored" value={formatBytes(storedBytes)} />
+          <StatCard icon={HardDrive} label="Shard Count" value={String(shardCount)} />
+          <StatCard icon={ShieldCheck} label="Storage Receipts" value={String(receipts.total)} />
+          <StatCard icon={Activity} label="Payment Channels" value={String(channels.count)} sub={`${channels.totalSpent} spent`} />
         </div>
       </div>
 
       {/* Earnings */}
       <div className="bg-gray-900 rounded-xl p-4 mb-6">
-        <h2 className="text-lg font-semibold mb-3">Earnings Summary</h2>
+        <h2 className="text-lg font-semibold mb-3">Channel Summary</h2>
         <div className="grid grid-cols-3 gap-4">
-          <StatCard icon={DollarSign} label="PDP Rewards" value="$14.25" sub="this month" color="text-green-400" />
-          <StatCard icon={DollarSign} label="Egress Revenue" value="$8.70" sub="this month" color="text-green-400" />
-          <StatCard icon={DollarSign} label="Total Earned" value="$156.42" sub="all time" color="text-craftec-500" />
+          <StatCard icon={DollarSign} label="Total Locked" value={String(channels.totalLocked)} color="text-craftec-500" />
+          <StatCard icon={DollarSign} label="Total Spent" value={String(channels.totalSpent)} color="text-orange-400" />
+          <StatCard icon={DollarSign} label="Remaining" value={String(channels.totalLocked - channels.totalSpent)} color="text-green-400" />
         </div>
       </div>
 

@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Database, Upload, Lock, Unlock, ShieldCheck, UserPlus, UserMinus, HardDrive } from "lucide-react";
 import { useDataCraftStore } from "../../store/dataCraftStore";
+import { useDaemonStore } from "../../store/daemonStore";
 import StatCard from "../../components/StatCard";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
+import DaemonOffline from "../../components/DaemonOffline";
 
 function formatBytes(bytes: number): string {
   if (bytes >= 1_000_000_000) return `${(bytes / 1_000_000_000).toFixed(1)} GB`;
@@ -17,31 +19,53 @@ function shortenCid(cid: string): string {
 }
 
 export default function DataDashboard() {
-  const { content, accessLists, publishContent, grantAccess, revokeAccess } = useDataCraftStore();
+  const { content, accessLists, loading, error, loadContent, publishContent, grantAccess, revokeAccess, loadAccessList } = useDataCraftStore();
+  const { connected } = useDaemonStore();
   const [showPublish, setShowPublish] = useState(false);
   const [showAccess, setShowAccess] = useState<string | null>(null);
-  const [fileName, setFileName] = useState("");
+  const [filePath, setFilePath] = useState("");
   const [encrypt, setEncrypt] = useState(false);
   const [accessDid, setAccessDid] = useState("");
+  const [publishing, setPublishing] = useState(false);
+
+  // Load content when daemon connects
+  useEffect(() => {
+    if (connected) loadContent();
+  }, [connected, loadContent]);
+
+  // Load access list when modal opens
+  useEffect(() => {
+    if (showAccess && connected) loadAccessList(showAccess);
+  }, [showAccess, connected, loadAccessList]);
 
   const totalStored = content.reduce((s, c) => s + c.size, 0);
   const totalShards = content.reduce((s, c) => s + c.shards, 0);
   const totalPool = content.reduce((s, c) => s + c.poolBalance, 0);
   const avgHealth = content.length > 0 ? content.reduce((s, c) => s + c.healthRatio, 0) / content.length : 0;
 
-  const handlePublish = () => {
-    if (fileName.trim()) {
-      publishContent(fileName.trim(), encrypt);
-      setFileName("");
+  const handlePublish = async () => {
+    if (!filePath.trim()) return;
+    setPublishing(true);
+    try {
+      await publishContent(filePath.trim(), encrypt);
+      setFilePath("");
       setEncrypt(false);
       setShowPublish(false);
+    } catch {
+      // error is in store
+    } finally {
+      setPublishing(false);
     }
   };
 
-  const handleGrant = () => {
+  const handleGrant = async () => {
     if (showAccess && accessDid.trim()) {
-      grantAccess(showAccess, accessDid.trim());
-      setAccessDid("");
+      try {
+        await grantAccess(showAccess, accessDid.trim());
+        setAccessDid("");
+      } catch {
+        // error is in store
+      }
     }
   };
 
@@ -49,17 +73,26 @@ export default function DataDashboard() {
 
   return (
     <div className="max-w-4xl mx-auto">
+      <DaemonOffline />
+
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <Database className="text-craftec-500" /> DataCraft
         </h1>
         <button
           onClick={() => setShowPublish(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-craftec-600 hover:bg-craftec-700 text-white rounded-lg transition-colors"
+          disabled={!connected}
+          className="flex items-center gap-2 px-4 py-2 bg-craftec-600 hover:bg-craftec-700 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-lg transition-colors"
         >
           <Upload size={16} /> Publish Content
         </button>
       </div>
+
+      {error && (
+        <div className="bg-red-900/20 border border-red-800 rounded-lg px-4 py-2 mb-4 text-sm text-red-300">
+          {error}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-4 gap-4 mb-6">
@@ -71,7 +104,10 @@ export default function DataDashboard() {
 
       {/* Content Table */}
       <div className="bg-gray-900 rounded-xl p-4 mb-6">
-        <h2 className="text-lg font-semibold mb-3">My Content</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold">My Content</h2>
+          {loading && <span className="text-xs text-gray-500 animate-pulse">Loading...</span>}
+        </div>
         <DataTable
           columns={[
             { key: "name", header: "Name" },
@@ -121,7 +157,7 @@ export default function DataDashboard() {
             },
           ]}
           data={content as unknown as Record<string, unknown>[]}
-          emptyMessage="No content published yet"
+          emptyMessage={connected ? "No content published yet" : "Connect daemon to view content"}
         />
       </div>
 
@@ -129,15 +165,15 @@ export default function DataDashboard() {
       <Modal open={showPublish} onClose={() => setShowPublish(false)} title="Publish Content">
         <div className="space-y-4">
           <div>
-            <label className="block text-sm text-gray-400 mb-1">File Name</label>
+            <label className="block text-sm text-gray-400 mb-1">File Path</label>
             <input
               type="text"
-              value={fileName}
-              onChange={(e) => setFileName(e.target.value)}
-              placeholder="e.g. my-dataset.csv"
+              value={filePath}
+              onChange={(e) => setFilePath(e.target.value)}
+              placeholder="/path/to/file.csv"
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-craftec-500"
             />
-            <p className="text-xs text-gray-500 mt-1">In a real build, this would open a file picker via Tauri IPC</p>
+            <p className="text-xs text-gray-500 mt-1">Absolute path to the file to publish via daemon</p>
           </div>
           <div className="flex items-center gap-3">
             <button
@@ -150,10 +186,10 @@ export default function DataDashboard() {
           </div>
           <button
             onClick={handlePublish}
-            disabled={!fileName.trim()}
+            disabled={!filePath.trim() || publishing}
             className="w-full py-2 bg-craftec-600 hover:bg-craftec-700 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-lg transition-colors"
           >
-            Publish
+            {publishing ? "Publishing..." : "Publish"}
           </button>
         </div>
       </Modal>
@@ -169,12 +205,12 @@ export default function DataDashboard() {
               type="text"
               value={accessDid}
               onChange={(e) => setAccessDid(e.target.value)}
-              placeholder="did:craftec:..."
+              placeholder="recipient pubkey (hex)"
               className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-craftec-500"
             />
             <button
               onClick={handleGrant}
-              disabled={!accessDid.trim()}
+              disabled={!accessDid.trim() || !connected}
               className="px-3 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-700 text-white rounded-lg transition-colors"
             >
               <UserPlus size={16} />
@@ -187,12 +223,13 @@ export default function DataDashboard() {
             {accessEntries.map((entry) => (
               <div key={entry.did} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2">
                 <div>
-                  <p className="text-sm font-mono">{entry.did}</p>
-                  <p className="text-xs text-gray-500">{new Date(entry.grantedAt).toLocaleDateString()}</p>
+                  <p className="text-sm font-mono">{entry.did.length > 20 ? `${entry.did.slice(0, 10)}...${entry.did.slice(-10)}` : entry.did}</p>
+                  {entry.grantedAt && <p className="text-xs text-gray-500">{new Date(entry.grantedAt).toLocaleDateString()}</p>}
                 </div>
                 <button
                   onClick={() => showAccess && revokeAccess(showAccess, entry.did)}
-                  className="text-red-400 hover:text-red-300"
+                  disabled={!connected}
+                  className="text-red-400 hover:text-red-300 disabled:text-gray-600"
                 >
                   <UserMinus size={16} />
                 </button>

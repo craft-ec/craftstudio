@@ -1,11 +1,14 @@
 import { useState } from "react";
 import { Wallet, Copy, DollarSign, ArrowUpRight, ArrowDownLeft, CreditCard, CheckCircle, Clock, XCircle } from "lucide-react";
 import { useWalletStore } from "../../store/walletStore";
+import { useDaemonStore } from "../../store/daemonStore";
 import type { Transaction } from "../../store/walletStore";
 import StatCard from "../../components/StatCard";
 import Modal from "../../components/Modal";
+import DaemonOffline from "../../components/DaemonOffline";
 
 function shortenAddr(addr: string): string {
+  if (!addr) return "—";
   return `${addr.slice(0, 6)}...${addr.slice(-6)}`;
 }
 
@@ -36,40 +39,60 @@ const statusColor: Record<Transaction["status"], string> = {
 };
 
 export default function WalletPage() {
-  const { address, solBalance, usdcBalance, transactions, fundPool } = useWalletStore();
+  const { address, solBalance, usdcBalance, transactions, fundPool, error } = useWalletStore();
+  const { connected } = useDaemonStore();
   const [showFund, setShowFund] = useState(false);
   const [fundAmount, setFundAmount] = useState("");
   const [copied, setCopied] = useState(false);
+  const [funding, setFunding] = useState(false);
 
   const handleCopy = () => {
+    if (!address) return;
     navigator.clipboard.writeText(address);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleFund = () => {
+  const handleFund = async () => {
     const amount = parseFloat(fundAmount);
-    if (amount > 0 && amount <= usdcBalance) {
-      fundPool(amount);
-      setFundAmount("");
-      setShowFund(false);
+    if (amount > 0) {
+      setFunding(true);
+      try {
+        await fundPool(amount);
+        setFundAmount("");
+        setShowFund(false);
+      } catch {
+        // error in store
+      } finally {
+        setFunding(false);
+      }
     }
   };
 
   return (
     <div className="max-w-3xl mx-auto">
+      <DaemonOffline />
+
       <h1 className="text-2xl font-bold mb-6 flex items-center gap-2">
         <Wallet className="text-craftec-500" /> Wallet
       </h1>
+
+      {error && (
+        <div className="bg-red-900/20 border border-red-800 rounded-lg px-4 py-2 mb-4 text-sm text-red-300">
+          {error}
+        </div>
+      )}
 
       {/* Address */}
       <div className="bg-gray-900 rounded-xl p-4 mb-6">
         <p className="text-sm text-gray-400 mb-1">Solana Address (derived from identity key)</p>
         <div className="flex items-center gap-2">
-          <span className="font-mono text-sm">{shortenAddr(address)}</span>
-          <button onClick={handleCopy} className="text-gray-400 hover:text-gray-200" title="Copy address">
-            <Copy size={14} />
-          </button>
+          <span className="font-mono text-sm">{address ? shortenAddr(address) : "Not loaded"}</span>
+          {address && (
+            <button onClick={handleCopy} className="text-gray-400 hover:text-gray-200" title="Copy address">
+              <Copy size={14} />
+            </button>
+          )}
           {copied && <span className="text-xs text-green-400">Copied!</span>}
         </div>
       </div>
@@ -77,11 +100,12 @@ export default function WalletPage() {
       {/* Balances */}
       <div className="grid grid-cols-3 gap-4 mb-6">
         <StatCard icon={DollarSign} label="USDC Balance" value={`$${usdcBalance.toFixed(2)}`} />
-        <StatCard icon={Wallet} label="SOL Balance" value={`${solBalance.toFixed(4)} SOL`} sub="~$0.05 (for fees)" />
+        <StatCard icon={Wallet} label="SOL Balance" value={`${solBalance.toFixed(4)} SOL`} sub="for tx fees" />
         <div className="bg-gray-900 rounded-lg p-4 flex items-center justify-center">
           <button
             onClick={() => setShowFund(true)}
-            className="px-4 py-2 bg-craftec-600 hover:bg-craftec-700 text-white rounded-lg transition-colors text-sm"
+            disabled={!connected}
+            className="px-4 py-2 bg-craftec-600 hover:bg-craftec-700 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-lg transition-colors text-sm"
           >
             Fund Creator Pool
           </button>
@@ -91,33 +115,37 @@ export default function WalletPage() {
       {/* Transaction History */}
       <div className="bg-gray-900 rounded-xl p-4">
         <h2 className="text-lg font-semibold mb-3">Transaction History</h2>
-        <div className="space-y-2">
-          {transactions.map((tx) => {
-            const TxIcon = txTypeIcon[tx.type];
-            const StatusIcon = statusIcon[tx.status];
-            const isOutgoing = tx.type === "fund_pool" || tx.type === "subscribe";
-            return (
-              <div key={tx.signature} className="flex items-center justify-between bg-gray-800/50 rounded-lg px-3 py-2">
-                <div className="flex items-center gap-3">
-                  <TxIcon size={16} className={isOutgoing ? "text-orange-400" : "text-green-400"} />
-                  <div>
-                    <p className="text-sm">{txTypeLabel[tx.type]}</p>
-                    <p className="text-xs text-gray-500 font-mono">{tx.signature}</p>
+        {transactions.length === 0 ? (
+          <p className="text-sm text-gray-500">No transactions yet</p>
+        ) : (
+          <div className="space-y-2">
+            {transactions.map((tx) => {
+              const TxIcon = txTypeIcon[tx.type];
+              const StatusIcon = statusIcon[tx.status];
+              const isOutgoing = tx.type === "fund_pool" || tx.type === "subscribe";
+              return (
+                <div key={tx.signature} className="flex items-center justify-between bg-gray-800/50 rounded-lg px-3 py-2">
+                  <div className="flex items-center gap-3">
+                    <TxIcon size={16} className={isOutgoing ? "text-orange-400" : "text-green-400"} />
+                    <div>
+                      <p className="text-sm">{txTypeLabel[tx.type]}</p>
+                      <p className="text-xs text-gray-500 font-mono">{tx.signature}</p>
+                    </div>
+                  </div>
+                  <div className="text-right flex items-center gap-2">
+                    <div>
+                      <p className={`text-sm ${isOutgoing ? "text-orange-400" : "text-green-400"}`}>
+                        {isOutgoing ? "-" : "+"}{tx.amount.toFixed(2)} {tx.token}
+                      </p>
+                      <p className="text-xs text-gray-500">{new Date(tx.timestamp).toLocaleDateString()}</p>
+                    </div>
+                    <StatusIcon size={14} className={statusColor[tx.status]} />
                   </div>
                 </div>
-                <div className="text-right flex items-center gap-2">
-                  <div>
-                    <p className={`text-sm ${isOutgoing ? "text-orange-400" : "text-green-400"}`}>
-                      {isOutgoing ? "-" : "+"}{tx.amount.toFixed(2)} {tx.token}
-                    </p>
-                    <p className="text-xs text-gray-500">{new Date(tx.timestamp).toLocaleDateString()}</p>
-                  </div>
-                  <StatusIcon size={14} className={statusColor[tx.status]} />
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Fund Modal */}
@@ -138,10 +166,10 @@ export default function WalletPage() {
           </div>
           <button
             onClick={handleFund}
-            disabled={!fundAmount || parseFloat(fundAmount) <= 0 || parseFloat(fundAmount) > usdcBalance}
+            disabled={!fundAmount || parseFloat(fundAmount) <= 0 || funding}
             className="w-full py-2 bg-craftec-600 hover:bg-craftec-700 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-lg transition-colors"
           >
-            Fund Pool
+            {funding ? "Funding..." : "Fund Pool"}
           </button>
         </div>
       </Modal>

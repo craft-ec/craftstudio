@@ -1,4 +1,5 @@
 mod commands;
+mod config;
 
 pub fn run() {
     tauri::Builder::default()
@@ -6,6 +7,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::get_identity,
             commands::get_version,
+            config::get_config,
+            config::save_config,
+            config::get_default_config,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
