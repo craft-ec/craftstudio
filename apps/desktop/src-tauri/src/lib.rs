@@ -52,6 +52,8 @@ pub fn run() {
             config::get_config,
             config::save_config,
             config::get_default_config,
+            config::read_daemon_config,
+            config::write_daemon_config,
             start_datacraft_daemon,
             stop_datacraft_daemon,
             list_datacraft_daemons,

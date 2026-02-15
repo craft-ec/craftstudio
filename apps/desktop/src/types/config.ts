@@ -1,5 +1,8 @@
 /** CraftStudio configuration schema — persisted to ~/.craftstudio/config.json */
 
+/** Current CraftStudio config schema version */
+export const CONFIG_SCHEMA_VERSION = 1;
+
 /** Per-instance configuration — each daemon tab has its own identity, storage, network settings */
 export interface InstanceConfig {
   id: string;
@@ -39,6 +42,9 @@ export const DEFAULT_INSTANCE: Omit<InstanceConfig, 'id' | 'name'> = {
 };
 
 export interface CraftStudioConfig {
+  /** Schema version for migration */
+  schema_version?: number;
+
   /** Global Solana settings — shared across all instances */
   solana: {
     cluster: 'devnet' | 'mainnet-beta' | 'custom';
@@ -60,6 +66,7 @@ export interface CraftStudioConfig {
 }
 
 export const DEFAULT_CONFIG: CraftStudioConfig = {
+  schema_version: CONFIG_SCHEMA_VERSION,
   solana: {
     cluster: 'devnet',
   },
@@ -73,13 +80,43 @@ export const DEFAULT_CONFIG: CraftStudioConfig = {
   },
 };
 
-/** Daemon runtime config — timing knobs exposed via get-config/set-config IPC */
+/** Daemon runtime config — stored in {data_dir}/config.json.
+ * CraftStudio writes this; daemon reads it on startup.
+ * Also exposed via get-config/set-config WS commands at runtime.
+ */
 export interface DaemonConfig {
+  schema_version: number;
+  capabilities: string[];
+  listen_port: number;
+  ws_port: number;
+  socket_path: string | null;
   capability_announce_interval_secs: number;
   reannounce_interval_secs: number;
   reannounce_threshold_secs: number;
-  challenger_interval_secs?: number;
+  challenger_interval_secs?: number | null;
+  max_storage_bytes: number;
+  /** Any unknown fields — preserved for forward compat */
+  [key: string]: unknown;
 }
+
+/** Default daemon config */
+export const DEFAULT_DAEMON_CONFIG: DaemonConfig = {
+  schema_version: 2,
+  capabilities: ['client', 'storage'],
+  listen_port: 0,
+  ws_port: 9091,
+  socket_path: null,
+  capability_announce_interval_secs: 300,
+  reannounce_interval_secs: 600,
+  reannounce_threshold_secs: 1200,
+  challenger_interval_secs: null,
+  max_storage_bytes: 0,
+};
+
+/** Fields that require daemon restart when changed */
+export const RESTART_REQUIRED_FIELDS: (keyof DaemonConfig)[] = [
+  'capabilities', 'listen_port', 'ws_port', 'socket_path',
+];
 
 /** Deep merge b into a (b wins) */
 export function mergeConfig(
@@ -101,4 +138,13 @@ export function mergeConfig(
     }
   }
   return result;
+}
+
+/** Convert InstanceConfig capabilities to daemon config capabilities array */
+export function capabilitiesToArray(caps: InstanceConfig['capabilities']): string[] {
+  const result: string[] = [];
+  if (caps.client) result.push('client');
+  if (caps.storage) result.push('storage');
+  if (caps.aggregator) result.push('aggregator');
+  return result.length > 0 ? result : ['client'];
 }

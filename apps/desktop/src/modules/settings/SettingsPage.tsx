@@ -218,6 +218,7 @@ function DaemonConfigSection({ instanceId }: { instanceId: string }) {
 
   return (
     <Section icon={Timer} title="Daemon Timing">
+      <p className="text-xs text-gray-500">These settings are hot-reloaded — no restart needed.</p>
       <Input
         label="Capability Announce Interval (secs)"
         value={String(daemonCfg.capability_announce_interval_secs)}
@@ -418,6 +419,7 @@ export default function SettingsPage() {
             <Section icon={Database} title="Node">
               <div className="space-y-2">
                 <span className="text-sm text-gray-400">Capabilities</span>
+                <p className="text-xs text-amber-500/80">⚠ Changes require daemon restart</p>
                 <Toggle
                   label="Client"
                   checked={instance.capabilities.client}

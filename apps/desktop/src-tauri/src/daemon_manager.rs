@@ -144,11 +144,53 @@ impl DaemonManager {
             return Err(format!("Port {} already in use — daemon already running", ws_port));
         }
 
-        // Build capabilities env var — default to "client" only if not specified
-        let caps_env = config.capabilities
-            .as_ref()
-            .map(|caps| caps.join(","))
-            .unwrap_or_else(|| "client".to_string());
+        // Write daemon config to data dir BEFORE starting the daemon.
+        // The daemon reads its config from {data_dir}/config.json — no env var hacks.
+        {
+            let caps = config.capabilities
+                .as_ref()
+                .cloned()
+                .unwrap_or_else(|| vec!["client".to_string()]);
+            let daemon_cfg = serde_json::json!({
+                "schema_version": 2,
+                "capabilities": caps,
+                "listen_port": listen_port,
+                "ws_port": ws_port,
+                "socket_path": &socket_path,
+                "capability_announce_interval_secs": 300,
+                "reannounce_interval_secs": 600,
+                "reannounce_threshold_secs": 1200,
+                "challenger_interval_secs": null,
+                "max_storage_bytes": 0
+            });
+            let config_path = std::path::Path::new(&data_dir).join("config.json");
+            // Merge with existing config if present (preserve user changes to timing etc.)
+            let final_cfg = if config_path.exists() {
+                if let Ok(existing) = std::fs::read_to_string(&config_path) {
+                    if let Ok(mut existing_val) = serde_json::from_str::<serde_json::Value>(&existing) {
+                        if let Some(obj) = existing_val.as_object_mut() {
+                            // Only overwrite capabilities, network — preserve timing settings
+                            obj.insert("capabilities".to_string(), daemon_cfg["capabilities"].clone());
+                            obj.insert("listen_port".to_string(), daemon_cfg["listen_port"].clone());
+                            obj.insert("ws_port".to_string(), daemon_cfg["ws_port"].clone());
+                            obj.insert("socket_path".to_string(), daemon_cfg["socket_path"].clone());
+                            obj.insert("schema_version".to_string(), serde_json::json!(2));
+                        }
+                        existing_val
+                    } else {
+                        daemon_cfg
+                    }
+                } else {
+                    daemon_cfg
+                }
+            } else {
+                daemon_cfg
+            };
+            std::fs::create_dir_all(&data_dir).ok();
+            if let Err(e) = std::fs::write(&config_path, serde_json::to_string_pretty(&final_cfg).unwrap_or_default()) {
+                eprintln!("Warning: failed to write daemon config to {:?}: {}", config_path, e);
+            }
+        }
 
         let mut child = Command::new(&binary)
             .arg("--data-dir")
@@ -159,7 +201,6 @@ impl DaemonManager {
             .arg(ws_port.to_string())
             .arg("--listen")
             .arg(&listen_addr)
-            .env("CRAFTEC_CAPABILITIES", &caps_env)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()

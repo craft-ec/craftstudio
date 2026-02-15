@@ -41,54 +41,17 @@ export default function DashboardPage() {
   const logActivity = useInstanceStore((s) => s.logActivity);
   const initClient = useInstanceStore((s) => s.initClient);
 
+  const restartInstance = useInstanceStore((s) => s.restartInstance);
+
   const handleRestart = useCallback(async () => {
     if (!instance || restarting) return;
     setRestarting(true);
-    logActivity(instance.id, "Restarting daemon...", "warn");
     try {
-      // Find the running daemon by matching ws_port
-      const daemons = await invoke<Array<{ pid: number; ws_port: number }>>('list_datacraft_daemons');
-      const port = parseInt(instance.url.match(/:(\d+)/)?.[1] ?? '9091');
-      const running = daemons.find(d => d.ws_port === port);
-
-      // Disconnect WS client
-      destroyClient(instance.id);
-
-      if (running) {
-        await invoke('stop_datacraft_daemon', { pid: running.pid });
-        logActivity(instance.id, "Daemon stopped", "info");
-      }
-
-      // Brief pause to let port release
-      await new Promise(r => setTimeout(r, 500));
-
-      // Start daemon with current config
-      const caps: string[] = [];
-      if (instance.capabilities?.client) caps.push("client");
-      if (instance.capabilities?.storage) caps.push("storage");
-      if (instance.capabilities?.aggregator) caps.push("aggregator");
-
-      await invoke('start_datacraft_daemon', {
-        config: {
-          data_dir: instance.dataDir,
-          socket_path: null,
-          ws_port: port,
-          listen_addr: null,
-          binary_path: null,
-          capabilities: caps.length > 0 ? caps : ["client"],
-        },
-      });
-      logActivity(instance.id, "Daemon restarted", "success");
-
-      // Reconnect WS
-      await new Promise(r => setTimeout(r, 1000));
-      initClient(instance.id);
-    } catch (e) {
-      logActivity(instance.id, `Restart failed: ${e}`, "error");
+      await restartInstance(instance.id);
     } finally {
       setRestarting(false);
     }
-  }, [instance, restarting, logActivity, initClient]);
+  }, [instance, restarting, restartInstance]);
 
   const handleStop = useCallback(async () => {
     if (!instance) return;
