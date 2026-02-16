@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Globe, Activity, Users, Clock, Zap, DollarSign, HardDrive } from "lucide-react";
+import { Globe, Activity, Users, Clock, Zap, DollarSign, HardDrive, Database, Receipt, MapPin } from "lucide-react";
 import { useDaemon, useActiveConnection } from "../../hooks/useDaemon";
 import { useActiveInstance } from "../../hooks/useActiveInstance";
 import { useInstanceStore } from "../../store/instanceStore";
@@ -7,12 +7,25 @@ import StatCard from "../../components/StatCard";
 import DaemonOffline from "../../components/DaemonOffline";
 import NetworkHealth from "../../components/NetworkHealth";
 import { usePeers } from "../../hooks/usePeers";
+import type { NodeStatsResponse } from "../../services/daemon";
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 B";
   const units = ["B", "KB", "MB", "GB", "TB"];
   const i = Math.floor(Math.log(bytes) / Math.log(1024));
   return `${(bytes / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0)} ${units[i]}`;
+}
+
+function formatUptime(secs: number): string {
+  if (secs < 60) return `${secs}s`;
+  if (secs < 3600) return `${Math.floor(secs / 60)}m`;
+  if (secs < 86400) return `${Math.floor(secs / 3600)}h ${Math.floor((secs % 3600) / 60)}m`;
+  return `${Math.floor(secs / 86400)}d ${Math.floor((secs % 86400) / 3600)}h`;
+}
+
+function truncHash(h: string): string {
+  if (h.length <= 12) return h;
+  return `${h.slice(0, 8)}…${h.slice(-4)}`;
 }
 
 interface Capability {
@@ -42,20 +55,21 @@ export default function NetworkPage() {
   const [peers, setPeers] = useState<Record<string, { capabilities: string[] }>>({});
   const [channels, setChannels] = useState<ChannelSummary>({ count: 0, totalLocked: 0, totalSpent: 0 });
   const [networkStorage, setNetworkStorage] = useState({ total_committed: 0, total_used: 0, total_available: 0, storage_node_count: 0 });
-  const [uptime, setUptime] = useState("—");
+  const [nodeStats, setNodeStats] = useState<NodeStatsResponse | null>(null);
 
   const loadNodeData = useCallback(async () => {
     if (!connected || !client) return;
     try {
-      const [peersData, channelData, statusData, storageData] = await Promise.allSettled([
+      const [peersData, channelData, storageData, statsData] = await Promise.allSettled([
         client.listPeers(),
         client.listChannels(),
-        client.status(),
         client.networkStorage(),
+        client.nodeStats(),
       ]);
 
       if (peersData.status === "fulfilled") setPeers(peersData.value || {});
       if (storageData.status === "fulfilled") setNetworkStorage(storageData.value);
+      if (statsData.status === "fulfilled") setNodeStats(statsData.value);
       if (channelData.status === "fulfilled") {
         const chs = channelData.value.channels || [];
         setChannels({
@@ -63,9 +77,6 @@ export default function NetworkPage() {
           totalLocked: chs.reduce((s, c) => s + c.locked_amount, 0),
           totalSpent: chs.reduce((s, c) => s + c.spent, 0),
         });
-      }
-      if (statusData.status === "fulfilled") {
-        setUptime(connected ? "Connected" : "—");
       }
     } catch { /* */ }
   }, [connected, client]);
@@ -94,11 +105,32 @@ export default function NetworkPage() {
         <Globe className="text-craftec-500" /> Network Overview
       </h1>
 
+      {/* Node Stats */}
+      {nodeStats && (
+        <div className="bg-gray-900 rounded-xl p-4 mb-6">
+          <h2 className="text-lg font-semibold mb-3">This Node</h2>
+          <div className="grid grid-cols-4 gap-4 mb-4">
+            <StatCard icon={Database} label="Content" value={String(nodeStats.content_count)} sub={`${nodeStats.published_count} published · ${nodeStats.stored_count} stored`} />
+            <StatCard icon={HardDrive} label="Local Pieces" value={String(nodeStats.total_local_pieces)} />
+            <StatCard icon={HardDrive} label="Disk Usage" value={formatBytes(nodeStats.total_disk_usage)} />
+            <StatCard icon={Receipt} label="Receipts" value={String(nodeStats.receipts_generated)} color="text-green-400" />
+          </div>
+          <div className="flex items-center gap-4 text-sm text-gray-400">
+            <span className="flex items-center gap-1"><Clock size={14} /> {formatUptime(nodeStats.uptime_secs)}</span>
+            {nodeStats.region && <span className="flex items-center gap-1"><MapPin size={14} /> {nodeStats.region}</span>}
+            <span className="font-mono text-xs" title={nodeStats.storage_root}>Root: {truncHash(nodeStats.storage_root)}</span>
+            {nodeStats.capabilities.map((cap) => (
+              <span key={cap} className="px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 text-xs">{cap}</span>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Status */}
       <div className="grid grid-cols-4 gap-4 mb-6">
         <StatCard icon={Activity} label="Status" value={connected ? "Online" : "Offline"} color={connected ? "text-green-400" : "text-red-400"} />
         <StatCard icon={Users} label="Peers" value={String(peerCount)} sub={`${storagePeers} storage`} />
-        <StatCard icon={Clock} label="Uptime" value={uptime} />
+        <StatCard icon={Clock} label="Uptime" value={nodeStats ? formatUptime(nodeStats.uptime_secs) : "—"} />
         <StatCard icon={Zap} label="Capabilities" value={`${capabilities.filter((c) => c.enabled).length}/3`} />
       </div>
 

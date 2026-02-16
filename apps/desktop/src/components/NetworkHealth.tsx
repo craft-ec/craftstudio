@@ -1,49 +1,67 @@
-import { useState, useEffect, useRef } from "react";
-import { X } from "lucide-react";
-import { usePeers } from "../hooks/usePeers";
+import { useState, useEffect } from "react";
+import { Activity, HardDrive, Users, Shield, Receipt } from "lucide-react";
+import { useDaemon, useActiveConnection } from "../hooks/useDaemon";
+import StatCard from "./StatCard";
+import type { NetworkHealthResponse } from "../services/daemon";
 
-type HealthLevel = "red" | "orange" | "yellow" | "green";
-
-function getHealth(total: number, storage: number): { level: HealthLevel; message: string } {
-  if (total === 0) return { level: "red", message: "⚠️ Not connected to network — 0 peers" };
-  if (storage === 0) return { level: "orange", message: "⚠️ No storage peers — data stays local only" };
-  if (storage < 3) return { level: "yellow", message: `⚡ Connected to ${total} peers (${storage} storage)` };
-  return { level: "green", message: `✅ Healthy — connected to ${total} peers (${storage} storage)` };
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return `${(bytes / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0)} ${units[i]}`;
 }
 
-const levelStyles: Record<HealthLevel, string> = {
-  red: "bg-red-900/30 border-red-800 text-red-300",
-  orange: "bg-orange-900/30 border-orange-800 text-orange-300",
-  yellow: "bg-yellow-900/30 border-yellow-800 text-yellow-300",
-  green: "bg-green-900/30 border-green-800 text-green-300",
-};
+function healthColor(ratio: number): string {
+  if (ratio >= 0.8) return "bg-green-500";
+  if (ratio >= 0.5) return "bg-yellow-500";
+  return "bg-red-500";
+}
 
 export default function NetworkHealth() {
-  const { total, storage } = usePeers();
-  const [dismissed, setDismissed] = useState(false);
-  const prevLevel = useRef<HealthLevel | null>(null);
+  const daemon = useDaemon();
+  const { connected } = useActiveConnection();
+  const [data, setData] = useState<NetworkHealthResponse | null>(null);
 
-  const { level, message } = getHealth(total, storage);
-
-  // Re-show banner when level changes
   useEffect(() => {
-    if (prevLevel.current !== null && prevLevel.current !== level) {
-      setDismissed(false);
-    }
-    prevLevel.current = level;
-  }, [level]);
+    if (!connected || !daemon) return;
+    daemon.networkHealth().then(setData).catch(() => setData(null));
+  }, [connected, daemon]);
 
-  if (dismissed) return null;
+  if (!connected || !data) return null;
+
+  const ratio = data.average_health_ratio;
 
   return (
-    <div className={`flex items-center justify-between rounded-lg border px-4 py-2 mb-4 text-sm ${levelStyles[level]}`}>
-      <span>{message}</span>
-      <button onClick={() => setDismissed(true)} className="ml-4 opacity-60 hover:opacity-100">
-        <X size={14} />
-      </button>
+    <div className="mb-6">
+      {/* Health ratio bar */}
+      <div className="bg-gray-900 rounded-xl p-4 mb-4">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm font-medium flex items-center gap-2">
+            <Activity size={16} className="text-craftec-500" /> Network Health
+          </span>
+          <span className="text-sm font-semibold">{(ratio * 100).toFixed(1)}%</span>
+        </div>
+        <div className="w-full bg-gray-800 rounded-full h-3">
+          <div
+            className={`h-3 rounded-full transition-all ${healthColor(ratio)}`}
+            style={{ width: `${Math.min(100, ratio * 100)}%` }}
+          />
+        </div>
+        <div className="flex items-center gap-4 mt-2 text-xs text-gray-400">
+          <span className="text-green-400">{data.healthy_content_count} healthy</span>
+          {data.degraded_content_count > 0 && (
+            <span className="text-red-400">{data.degraded_content_count} degraded</span>
+          )}
+        </div>
+      </div>
+
+      {/* Stats grid */}
+      <div className="grid grid-cols-4 gap-4">
+        <StatCard icon={Shield} label="Content" value={String(data.total_content_count)} sub={`${data.healthy_content_count} healthy`} />
+        <StatCard icon={Users} label="Storage Nodes" value={String(data.storage_node_count)} sub={`${data.total_providers_unique} providers`} />
+        <StatCard icon={HardDrive} label="Network Storage" value={formatBytes(data.total_network_storage_used)} sub={`of ${formatBytes(data.total_network_storage_committed)}`} />
+        <StatCard icon={Receipt} label="Receipts (epoch)" value={String(data.receipts_this_epoch)} color="text-green-400" />
+      </div>
     </div>
   );
 }
-
-export { usePeers };
-export type { HealthLevel };

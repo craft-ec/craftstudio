@@ -77,6 +77,8 @@ export default function ClientTab() {
 
   const totalLocked = channels.reduce((s, c) => s + c.locked_amount, 0);
 
+  const published = content.filter((c) => c.role !== "storage_provider");
+
   const handlePublish = async () => {
     if (!filePath.trim()) return;
     setPublishing(true);
@@ -133,7 +135,7 @@ export default function ClientTab() {
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4 mb-6">
-        <StatCard icon={Upload} label="Published" value={String(content.length)} />
+        <StatCard icon={Upload} label="Published" value={String(published.length)} />
         <StatCard icon={Download} label="Channels" value={String(channels.length)} />
         <StatCard icon={DollarSign} label="Total Locked" value={totalLocked > 0 ? String(totalLocked) : "0"} color="text-green-400" />
       </div>
@@ -156,7 +158,7 @@ export default function ClientTab() {
               <button onClick={() => setShowAccess(String(item.cid))} className="text-xs text-craftec-400 hover:text-craftec-300">Access</button>
             )},
           ]}
-          data={content as unknown as Record<string, unknown>[]}
+          data={published as unknown as Record<string, unknown>[]}
           emptyMessage={connected ? "No content published yet" : "Start the daemon to see live data"}
         />
       </div>

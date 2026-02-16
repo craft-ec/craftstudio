@@ -10,6 +10,93 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { InstanceConfig } from '../types/config';
 
+// ── RLNC Health & Statistics types ──────────────────────
+
+export interface SegmentHealth {
+  index: number;
+  local_pieces: number;
+  rank: number;
+}
+
+export interface ProviderInfo {
+  peer_id: string;
+  region: string;
+  score: number;
+  latency_ms: number;
+}
+
+export interface ContentHealthResponse {
+  content_id: string;
+  name: string;
+  original_size: number;
+  segment_count: number;
+  k: number;
+  segments: SegmentHealth[];
+  min_rank: number;
+  health_ratio: number;
+  provider_count: number;
+  providers: ProviderInfo[];
+  pinned: boolean;
+  role: string;
+  stage: string;
+  local_disk_usage: number;
+}
+
+export interface ContentDetailedItem {
+  content_id: string;
+  name: string;
+  size: number;
+  chunks: number;
+  pinned: boolean;
+  role: string;
+  stage: string;
+  min_rank: number;
+  health_ratio: number;
+  local_disk_usage: number;
+  hot: boolean;
+  provider_count?: number;
+  encrypted?: boolean;
+}
+
+export interface SegmentDetail {
+  index: number;
+  k: number;
+  local_pieces: number;
+  piece_ids: string[];
+  reconstructable: boolean;
+}
+
+export interface ContentSegmentsResponse {
+  content_id: string;
+  segments: SegmentDetail[];
+}
+
+export interface NetworkHealthResponse {
+  total_content_count: number;
+  total_stored_bytes: number;
+  total_network_storage_committed: number;
+  total_network_storage_used: number;
+  storage_node_count: number;
+  healthy_content_count: number;
+  degraded_content_count: number;
+  average_health_ratio: number;
+  total_providers_unique: number;
+  receipts_this_epoch: number;
+}
+
+export interface NodeStatsResponse {
+  content_count: number;
+  published_count: number;
+  stored_count: number;
+  total_local_pieces: number;
+  total_disk_usage: number;
+  storage_root: string;
+  capabilities: string[];
+  region: string;
+  receipts_generated: number;
+  uptime_secs: number;
+}
+
 const RECONNECT_MS = 3_000;
 const REQUEST_TIMEOUT_MS = 30_000;
 
@@ -357,6 +444,28 @@ class DaemonClient {
 
   setDaemonConfig(patch: Partial<InstanceConfig>) {
     return this.call('set-config', { config: JSON.stringify(patch) });
+  }
+
+  // ── RLNC Health & Statistics ────────────────────────────
+
+  contentHealth(cid: string) {
+    return this.call<ContentHealthResponse>("content.health", { cid });
+  }
+
+  contentListDetailed() {
+    return this.call<ContentDetailedItem[]>("content.list_detailed");
+  }
+
+  contentSegments(cid: string) {
+    return this.call<ContentSegmentsResponse>("content.segments", { cid });
+  }
+
+  networkHealth() {
+    return this.call<NetworkHealthResponse>("network.health");
+  }
+
+  nodeStats() {
+    return this.call<NodeStatsResponse>("node.stats");
   }
 
   // Peers

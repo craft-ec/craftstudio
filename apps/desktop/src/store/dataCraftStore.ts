@@ -16,6 +16,8 @@ export interface ContentItem {
   healthRatio: number;
   poolBalance: number;
   publishedAt: string;
+  role: "publisher" | "storage_provider" | "unknown";
+  creator: string;
 }
 
 export interface AccessEntry {
@@ -62,6 +64,8 @@ export const useDataCraftStore = create<DataCraftState>((set) => ({
           healthRatio: 1.0,
           poolBalance: 0,
           publishedAt: new Date().toISOString(),
+          role: (item.role as "publisher" | "storage_provider") || "unknown",
+          creator: String(item.creator || ""),
         };
       });
       set({ content, loading: false });
@@ -85,6 +89,8 @@ export const useDataCraftStore = create<DataCraftState>((set) => ({
             healthRatio: 1.0,
             poolBalance: 0,
             publishedAt: new Date().toISOString(),
+            role: "publisher",
+            creator: "",
           },
           ...state.content,
         ],
