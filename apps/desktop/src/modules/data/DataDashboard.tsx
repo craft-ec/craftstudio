@@ -133,7 +133,7 @@ export default function DataDashboard() {
 
   const daemon = useDaemon();
   const { connected } = useActiveConnection();
-  const { content, accessLists, loading, error, loadContent, publishContent, grantAccess, revokeAccess, loadAccessList } = useDataCraftStore();
+  const { content, accessLists, loading, error, clearContent, loadContent, publishContent, grantAccess, revokeAccess, loadAccessList } = useDataCraftStore();
   const { storage: storagePeerCount } = usePeers();
 
   // Network health
@@ -168,9 +168,11 @@ export default function DataDashboard() {
 
   // ── Data loading ────────────────────────────────────────
 
+  // Clear stale data on mount (instance switch remounts via key={activeId})
   useEffect(() => {
+    clearContent();
     if (connected) loadContent();
-  }, [connected, loadContent]);
+  }, [connected, loadContent, clearContent]);
 
   useEffect(() => {
     if (!connected || !daemon) return;

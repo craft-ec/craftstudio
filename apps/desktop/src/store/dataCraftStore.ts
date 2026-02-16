@@ -35,6 +35,7 @@ interface DataCraftState {
   loading: boolean;
   error: string | null;
 
+  clearContent: () => void;
   loadContent: () => Promise<void>;
   publishContent: (path: string, encrypted: boolean) => Promise<void>;
   grantAccess: (cid: string, did: string) => Promise<void>;
@@ -48,8 +49,12 @@ export const useDataCraftStore = create<DataCraftState>((set) => ({
   loading: false,
   error: null,
 
+  clearContent: () => {
+    set({ content: [], accessLists: {}, loading: false, error: null });
+  },
+
   loadContent: async () => {
-    set({ loading: true, error: null });
+    set({ loading: true, error: null, content: [] });
     try {
       const items = await getDaemon().contentListDetailed();
       const content: ContentItem[] = (items || []).map((item) => ({
