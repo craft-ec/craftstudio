@@ -140,7 +140,15 @@ export default function DataDashboard() {
 
   // Content detail
   const [detailCid, setDetailCid] = useState<string | null>(null);
-  const [expandedCid, setExpandedCid] = useState<string | null>(null);
+  const [expandedCid, setExpandedCid] = useState<string | null>(() => localStorage.getItem("dc:expandedCid"));
+  const toggleExpandCid = (cid: string) => {
+    setExpandedCid(v => {
+      const next = v === cid ? null : cid;
+      if (next) localStorage.setItem("dc:expandedCid", next);
+      else localStorage.removeItem("dc:expandedCid");
+      return next;
+    });
+  };
 
   // PDP & Receipts
   const [receipts, setReceipts] = useState<StorageReceipt[]>([]);
@@ -296,7 +304,7 @@ export default function DataDashboard() {
                     <React.Fragment key={cid}>
                       <tr
                         className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors"
-                        onClick={() => setExpandedCid(isExpanded ? null : cid)}
+                        onClick={() => toggleExpandCid(cid)}
                       >
                         <td className="py-2.5 px-3 w-6">
                           {isExpanded ? <ChevronDown size={14} className="text-gray-400" /> : <ChevronRight size={14} className="text-gray-400" />}
