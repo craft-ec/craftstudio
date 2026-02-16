@@ -44,23 +44,19 @@ export interface ContentHealthResponse {
 
 export interface ContentDetailedItem {
   content_id: string;
-  name: string;
+  name?: string;
   total_size: number;
-  size: number;
   segment_count: number;
-  k: number;
-  local_pieces: number;
-  remote_pieces: number;
-  provider_count: number;
   pinned: boolean;
-  encrypted: boolean;
-  role: string;
-  stage: string;
+  encrypted?: boolean;
+  local_pieces?: number;
+  provider_count?: number;
+  role?: string;
+  stage?: string;
   min_rank: number;
   health_ratio: number;
   local_disk_usage: number;
-  hot: boolean;
-  creator: string;
+  hot?: boolean;
 }
 
 export interface SegmentDetail {
@@ -324,7 +320,7 @@ class DaemonClient {
 
   // Data
   publish(path: string, encrypted = false) {
-    return this.call<{ cid: string; size: number; chunks: number; key?: string }>(
+    return this.call<{ cid: string; size: number; segments: number; key?: string }>(
       "publish",
       { path, encrypted }
     );
@@ -335,11 +331,11 @@ class DaemonClient {
   }
 
   listContent() {
-    return this.call<Array<{ cid: string; name?: string; size: number; chunks: number; pinned: boolean }>>("list");
+    return this.call<Array<{ content_id: string; name?: string; total_size: number; segment_count: number; pinned: boolean }>>("list");
   }
 
   status() {
-    return this.call<{ stored_bytes: number; content_count: number; shard_count: number; pinned_count: number }>("status");
+    return this.call<{ stored_bytes: number; content_count: number; piece_count: number; pinned_count: number }>("status");
   }
 
   // Access
@@ -410,7 +406,7 @@ class DaemonClient {
         cid: string;
         storage_node: string;
         challenger: string;
-        shard_index: number;
+        segment_index: number;
         timestamp: number;
         signed: boolean;
       }>;

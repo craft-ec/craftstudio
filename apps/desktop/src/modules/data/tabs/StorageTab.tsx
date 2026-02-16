@@ -27,7 +27,7 @@ interface StorageReceipt {
   cid: string;
   storage_node: string;
   challenger: string;
-  shard_index: number;
+  segment_index: number;
   timestamp: number;
   signed: boolean;
 }
@@ -141,7 +141,7 @@ export default function StorageTab() {
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-semibold">Stored Content</h3>
           {stored.length > 0 && (
-            <span className="text-xs text-gray-500">{stored.length} items · {formatBytes(stored.reduce((acc, c) => acc + c.size, 0))}</span>
+            <span className="text-xs text-gray-500">{stored.length} items · {formatBytes(stored.reduce((acc, c) => acc + c.total_size, 0))}</span>
           )}
         </div>
         {items.length > 0 ? (
@@ -180,7 +180,7 @@ export default function StorageTab() {
                           <div className="py-2 px-3">
                             <span className="font-mono text-xs text-gray-400">{shortenCid(cid)}</span>
                           </div>
-                          <div className="py-2 px-3">{formatBytes(item.size)}</div>
+                          <div className="py-2 px-3">{formatBytes(item.total_size)}</div>
                           <div className="py-2 px-3 w-36">
                             <div className="flex items-center gap-2">
                               <div className="flex-1 bg-gray-800 rounded-full h-2">

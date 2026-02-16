@@ -30,7 +30,7 @@ export default function DashboardPage() {
   const [stats, setStats] = useState({
     storedBytes: 0,
     contentCount: 0,
-    shardCount: 0,
+    pieceCount: 0,
     pinnedCount: 0,
   });
   const [peerCount, setPeerCount] = useState(0);
@@ -104,7 +104,7 @@ export default function DashboardPage() {
         setStats({
           storedBytes: statusRes.value.stored_bytes,
           contentCount: statusRes.value.content_count,
-          shardCount: statusRes.value.shard_count,
+          pieceCount: statusRes.value.piece_count,
           pinnedCount: statusRes.value.pinned_count,
         });
       }
@@ -230,7 +230,7 @@ export default function DashboardPage() {
           icon={FileText}
           label="Content"
           value={String(stats.contentCount)}
-          sub={`${stats.shardCount} shards`}
+          sub={`${stats.pieceCount} pieces`}
         />
       </div>
 

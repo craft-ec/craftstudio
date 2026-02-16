@@ -10,12 +10,10 @@ function getDaemon() {
 export interface ContentItem {
   content_id: string;
   name: string;
-  size: number;
+  total_size: number;
   encrypted: boolean;
   segment_count: number;
-  k: number;
   local_pieces: number;
-  remote_pieces: number;
   provider_count: number;
   health_ratio: number;
   min_rank: number;
@@ -24,7 +22,6 @@ export interface ContentItem {
   pinned: boolean;
   role: "publisher" | "storage_provider" | "unknown";
   stage: string;
-  creator: string;
 }
 
 export interface AccessEntry {
@@ -58,21 +55,18 @@ export const useDataCraftStore = create<DataCraftState>((set) => ({
       const content: ContentItem[] = (items || []).map((item) => ({
         content_id: item.content_id,
         name: item.name || item.content_id.slice(0, 16),
-        size: item.total_size || item.size || 0,
-        encrypted: item.encrypted,
-        segment_count: item.segment_count,
-        k: item.k,
-        local_pieces: item.local_pieces,
-        remote_pieces: item.remote_pieces,
-        provider_count: item.provider_count,
-        health_ratio: item.health_ratio,
-        min_rank: item.min_rank,
-        local_disk_usage: item.local_disk_usage,
-        hot: item.hot,
+        total_size: item.total_size || 0,
+        encrypted: item.encrypted ?? false,
+        segment_count: item.segment_count || 0,
+        local_pieces: item.local_pieces ?? 0,
+        provider_count: item.provider_count ?? 0,
+        health_ratio: item.health_ratio || 0,
+        min_rank: item.min_rank || 0,
+        local_disk_usage: item.local_disk_usage || 0,
+        hot: item.hot ?? false,
         pinned: item.pinned,
         role: (item.role as "publisher" | "storage_provider") || "unknown",
-        stage: item.stage,
-        creator: item.creator,
+        stage: item.stage || "",
       }));
       set({ content, loading: false });
     } catch (e) {
@@ -89,12 +83,10 @@ export const useDataCraftStore = create<DataCraftState>((set) => ({
           {
             content_id: result.cid,
             name: path.split("/").pop() || path,
-            size: result.size,
+            total_size: result.size,
             encrypted,
             segment_count: 0,
-            k: 0,
             local_pieces: 0,
-            remote_pieces: 0,
             provider_count: 0,
             health_ratio: 0,
             min_rank: 0,
@@ -103,7 +95,6 @@ export const useDataCraftStore = create<DataCraftState>((set) => ({
             pinned: false,
             role: "publisher",
             stage: "publishing",
-            creator: "",
           },
           ...state.content,
         ],

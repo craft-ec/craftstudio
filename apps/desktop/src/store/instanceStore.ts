@@ -218,7 +218,7 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
         logActivity(id, "WebSocket connected — daemon online", "success", "system");
         client.status().then((s) => {
           if (s) {
-            logActivity(id, `Node has ${s.content_count} content items, ${s.shard_count} shards (${formatBytes(s.stored_bytes)})`, "info", "system");
+            logActivity(id, `Node has ${s.content_count} content items, ${s.piece_count} pieces (${formatBytes(s.stored_bytes)})`, "info", "system");
           }
         }).catch(() => {});
         client.listPeers().then((peers) => {
@@ -362,7 +362,7 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
 
         // Content operations
         case "content_published":
-          msg = `Content stored locally: ${formatBytes(Number(p.size ?? 0))} → ${p.chunks ?? 0} chunks × ${p.shards ?? "?"} shards — announcing to network...`;
+          msg = `Content stored locally: ${formatBytes(Number(p.size ?? p.total_size ?? 0))} → ${p.segment_count ?? 0} segments — encoding and announcing to network...`;
           break;
         case "provider_announced":
           msg = `Content ${short(p.content_id)} announced to DHT — storage nodes can now discover and store it`;
@@ -392,13 +392,13 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
             msg = `Content ${short(p.content_id)} has ${count} provider${count > 1 ? "s" : ""} — data is available on the network`;
             level = "success";
           } else {
-            msg = `Content ${short(p.content_id)} has no providers yet — shards need to be distributed to storage nodes`;
+            msg = `Content ${short(p.content_id)} has no providers yet — pieces need to be distributed to storage nodes`;
             level = "warn";
           }
           break;
         }
         case "manifest_retrieved":
-          msg = `Retrieved manifest for ${short(p.content_id)} (${p.chunks ?? 0} chunks)`;
+          msg = `Retrieved manifest for ${short(p.content_id)} (${p.segment_count ?? 0} segments)`;
           break;
         case "dht_error": {
           const errMsg = String(p.error ?? "unknown");
@@ -415,13 +415,13 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
 
         // Distribution
         case "content_distributed": {
-          const pushed = Number(p.shards_pushed ?? 0);
-          const total = Number(p.total_shards ?? 0);
+          const pushed = Number(p.pieces_pushed ?? p.shards_pushed ?? 0);
+          const total = Number(p.total_pieces ?? p.total_shards ?? 0);
           const peers = Number(p.target_peers ?? 0);
           if (pushed >= total) {
-            msg = `Content ${short(p.content_id)} fully distributed — ${pushed} shards across ${peers} storage node${peers > 1 ? "s" : ""}`;
+            msg = `Content ${short(p.content_id)} fully distributed — ${pushed} pieces across ${peers} storage node${peers > 1 ? "s" : ""}`;
           } else {
-            msg = `Content ${short(p.content_id)} partially distributed — ${pushed}/${total} shards sent to ${peers} node${peers > 1 ? "s" : ""}`;
+            msg = `Content ${short(p.content_id)} partially distributed — ${pushed}/${total} pieces sent to ${peers} node${peers > 1 ? "s" : ""}`;
             level = "warn";
           }
           break;
@@ -471,7 +471,8 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
           msg = `Removal notice for ${short(p.content_id)} from ${short(p.creator)} (${p.valid ? "valid" : "INVALID"})`;
           break;
         case "shard_requested":
-          msg = `Shard requested: ${short(p.content_id)} chunk ${p.chunk ?? "?"} shard ${p.shard ?? "?"} by ${short(p.peer_id)}`;
+        case "piece_requested":
+          msg = `Piece requested: ${short(p.content_id)} segment ${p.segment_index ?? p.chunk ?? "?"} by ${short(p.peer_id)}`;
           break;
         case "challenger_round_completed":
           msg = `PDP challenger completed ${p.rounds ?? 0} rounds`;

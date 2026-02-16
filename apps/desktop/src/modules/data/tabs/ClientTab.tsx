@@ -151,7 +151,7 @@ export default function ClientTab() {
               <span>{String(item.name)}{item.hot ? <span className="ml-1" title="Hot content">🔥</span> : null}</span>
             )},
             { key: "content_id", header: "CID", render: (item) => <span className="font-mono text-xs text-gray-400">{shortenCid(String(item.content_id))}</span> },
-            { key: "size", header: "Size", render: (item) => formatBytes(Number(item.size)) },
+            { key: "total_size", header: "Size", render: (item) => formatBytes(Number(item.total_size)) },
             { key: "encrypted", header: "Enc", render: (item) => item.encrypted ? <Lock size={14} className="text-craftec-400" /> : <Unlock size={14} className="text-gray-500" /> },
             { key: "segments", header: "Segments", render: (item) => <span>{String(item.segment_count || 0)}</span> },
             { key: "health", header: "Health", render: (item) => {
