@@ -49,7 +49,6 @@ export default function AddInstanceModal({ open, onClose }: Props) {
         config: { data_dir: null, socket_path: null, ws_port: null, listen_addr: null, binary_path: null },
       });
       addInstance(makeInstanceConfig({
-        name: `Local Node (:${result.ws_port})`,
         autoStart: true,
         dataDir: result.data_dir,
         ws_port: result.ws_port,

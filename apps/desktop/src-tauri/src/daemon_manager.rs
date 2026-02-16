@@ -161,11 +161,13 @@ impl DaemonManager {
                     "listen_port": listen_port,
                     "ws_port": ws_port,
                     "socket_path": &socket_path,
+                    "storage_path": format!("{}/storage", &data_dir),
+                    "keypair_path": format!("{}/identity.json", &data_dir),
                     "capability_announce_interval_secs": 300,
                     "reannounce_interval_secs": 600,
                     "reannounce_threshold_secs": 1200,
                     "challenger_interval_secs": null,
-                    "max_storage_bytes": 0
+                    "max_storage_bytes": 10_737_418_240_u64
                 });
                 if let Err(e) = std::fs::write(&config_path, serde_json::to_string_pretty(&daemon_cfg).unwrap_or_default()) {
                     eprintln!("Warning: failed to write initial daemon config to {:?}: {}", config_path, e);

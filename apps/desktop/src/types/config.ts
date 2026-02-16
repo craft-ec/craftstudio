@@ -97,7 +97,7 @@ export const DEFAULT_INSTANCE_CONFIG: InstanceConfig = {
   ws_port: 9091,
   socket_path: null,
   storage_path: '',
-  max_storage_bytes: 0,
+  max_storage_bytes: 10_737_418_240, // 10 GB default
   keypair_path: '',
   capability_announce_interval_secs: 300,
   reannounce_interval_secs: 600,
