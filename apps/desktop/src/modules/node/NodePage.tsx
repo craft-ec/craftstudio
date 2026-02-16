@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Globe, Activity, Users, Clock, Zap, DollarSign, HardDrive, Database, Receipt, MapPin } from "lucide-react";
+import { Globe, Activity, Users, Clock, Zap, HardDrive, Database, Receipt, MapPin } from "lucide-react";
 import { useDaemon, useActiveConnection } from "../../hooks/useDaemon";
 import { useActiveInstance } from "../../hooks/useActiveInstance";
 import { useInstanceStore } from "../../store/instanceStore";
@@ -34,12 +34,6 @@ interface Capability {
   enabled: boolean;
 }
 
-interface ChannelSummary {
-  count: number;
-  totalLocked: number;
-  totalSpent: number;
-}
-
 export default function NetworkPage() {
   const { connected } = useActiveConnection();
   const client = useDaemon();
@@ -53,16 +47,14 @@ export default function NetworkPage() {
   ];
   const peerStats = usePeers();
   const [peers, setPeers] = useState<Record<string, { capabilities: string[] }>>({});
-  const [channels, setChannels] = useState<ChannelSummary>({ count: 0, totalLocked: 0, totalSpent: 0 });
   const [networkStorage, setNetworkStorage] = useState({ total_committed: 0, total_used: 0, total_available: 0, storage_node_count: 0 });
   const [nodeStats, setNodeStats] = useState<NodeStatsResponse | null>(null);
 
   const loadNodeData = useCallback(async () => {
     if (!connected || !client) return;
     try {
-      const [peersData, channelData, storageData, statsData] = await Promise.allSettled([
+      const [peersData, storageData, statsData] = await Promise.allSettled([
         client.listPeers(),
-        client.listChannels(),
         client.networkStorage(),
         client.nodeStats(),
       ]);
@@ -70,14 +62,6 @@ export default function NetworkPage() {
       if (peersData.status === "fulfilled") setPeers(peersData.value || {});
       if (storageData.status === "fulfilled") setNetworkStorage(storageData.value);
       if (statsData.status === "fulfilled") setNodeStats(statsData.value);
-      if (channelData.status === "fulfilled") {
-        const chs = channelData.value.channels || [];
-        setChannels({
-          count: chs.length,
-          totalLocked: chs.reduce((s, c) => s + c.locked_amount, 0),
-          totalSpent: chs.reduce((s, c) => s + c.spent, 0),
-        });
-      }
     } catch { /* */ }
   }, [connected, client]);
 
@@ -132,16 +116,6 @@ export default function NetworkPage() {
         <StatCard icon={Users} label="Peers" value={String(peerCount)} sub={`${storagePeers} storage`} />
         <StatCard icon={Clock} label="Uptime" value={nodeStats ? formatUptime(nodeStats.uptime_secs) : "—"} />
         <StatCard icon={Zap} label="Capabilities" value={`${capabilities.filter((c) => c.enabled).length}/3`} />
-      </div>
-
-      {/* Channel Summary */}
-      <div className="bg-white rounded-xl p-4 mb-6">
-        <h2 className="text-lg font-semibold mb-3">Payment Channels</h2>
-        <div className="grid grid-cols-3 gap-4">
-          <StatCard icon={DollarSign} label="Active Channels" value={String(channels.count)} />
-          <StatCard icon={DollarSign} label="Total Locked" value={String(channels.totalLocked)} color="text-craftec-500" />
-          <StatCard icon={DollarSign} label="Remaining" value={String(channels.totalLocked - channels.totalSpent)} color="text-green-600" />
-        </div>
       </div>
 
       {/* Peer Breakdown */}

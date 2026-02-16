@@ -372,33 +372,6 @@ class DaemonClient {
     return this.call<{ cid: string; creator: string; authorized: string[] }>("access.list", { cid });
   }
 
-  // Channels
-  openChannel(sender: string, receiver: string, amount: number) {
-    return this.call("channel.open", { sender, receiver, amount });
-  }
-
-  issueVoucher(channelId: string, amount: number, nonce: number, signature?: string) {
-    return this.call("channel.voucher", { channel_id: channelId, amount, nonce, ...(signature && { signature }) });
-  }
-
-  closeChannel(channelId: string) {
-    return this.call("channel.close", { channel_id: channelId });
-  }
-
-  listChannels(peer?: string) {
-    return this.call<{
-      channels: Array<{
-        channel_id: string;
-        sender: string;
-        receiver: string;
-        locked_amount: number;
-        spent: number;
-        remaining: number;
-        nonce: number;
-      }>;
-    }>("channel.list", peer ? { peer } : undefined);
-  }
-
   // Receipts
   listStorageReceipts(opts?: { limit?: number; offset?: number; cid?: string; node?: string }) {
     return this.call<{
@@ -428,14 +401,6 @@ class DaemonClient {
 
   claimPdp(pool: string, operator: string, weight: number, merkleProof: string[], leafIndex?: number) {
     return this.call("settlement.claim", { pool, operator, weight, merkle_proof: merkleProof, leaf_index: leafIndex ?? 0 });
-  }
-
-  openSettlementChannel(payee: string, amount: number) {
-    return this.call("settlement.open_channel", { payee, amount });
-  }
-
-  closeSettlementChannel(user: string, node: string, amount: number, nonce: number, voucherSignature?: string) {
-    return this.call("settlement.close_channel", { user, node, amount, nonce, ...(voucherSignature && { voucher_signature: voucherSignature }) });
   }
 
   // Daemon config

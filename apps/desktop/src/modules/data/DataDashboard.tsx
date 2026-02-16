@@ -102,18 +102,6 @@ function SegmentExpander({ cid }: { cid: string }) {
   );
 }
 
-// ── Channel types ───────────────────────────────────────
-
-interface ChannelInfo {
-  channel_id: string;
-  sender: string;
-  receiver: string;
-  locked_amount: number;
-  spent: number;
-  remaining: number;
-  nonce: number;
-}
-
 interface StorageReceipt {
   cid: string;
   storage_node: string;
@@ -154,10 +142,6 @@ export default function DataDashboard() {
   const [detailCid, setDetailCid] = useState<string | null>(null);
   const [expandedCid, setExpandedCid] = useState<string | null>(null);
 
-  // Payment channels
-  const [channels, setChannels] = useState<ChannelInfo[]>([]);
-  const [showChannels, setShowChannels] = useState(false);
-
   // PDP & Receipts
   const [receipts, setReceipts] = useState<StorageReceipt[]>([]);
   const [totalReceipts, setTotalReceipts] = useState(0);
@@ -178,16 +162,6 @@ export default function DataDashboard() {
     if (!connected || !daemon) return;
     daemon.networkHealth().then(setNetHealth).catch(() => setNetHealth(null));
   }, [connected, daemon]);
-
-  const loadChannels = useCallback(async () => {
-    if (!connected || !daemon) return;
-    try {
-      const result = await daemon.listChannels();
-      setChannels(result?.channels || []);
-    } catch { /* */ }
-  }, [connected, daemon]);
-
-  useEffect(() => { loadChannels(); }, [loadChannels]);
 
   const loadReceipts = useCallback(async () => {
     if (!connected || !daemon || !hasStorage) return;
@@ -380,50 +354,6 @@ export default function DataDashboard() {
           <div className="flex flex-col items-center justify-center py-12 text-gray-500">
             <Inbox size={32} className="mb-2 opacity-50" />
             <p className="text-sm">{connected ? "No content yet — publish something!" : "Start the daemon to see content"}</p>
-          </div>
-        )}
-      </div>
-
-      {/* ── Payment Channels (collapsible) ───────────────── */}
-      <div className="bg-white rounded-xl p-4 mb-6 shadow-sm border border-gray-200">
-        <button
-          onClick={() => setShowChannels(!showChannels)}
-          className="flex items-center gap-2 w-full text-left"
-        >
-          {showChannels ? <ChevronDown size={16} className="text-gray-400" /> : <ChevronRight size={16} className="text-gray-400" />}
-          <h3 className="font-semibold">Payment Channels</h3>
-          <span className="text-xs text-gray-400 ml-auto">{channels.length} channels</span>
-        </button>
-        {showChannels && (
-          <div className="mt-4">
-            {channels.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-2 px-3 text-gray-400 font-medium text-xs uppercase tracking-wider">Channel</th>
-                      <th className="text-left py-2 px-3 text-gray-400 font-medium text-xs uppercase tracking-wider">Peer</th>
-                      <th className="text-left py-2 px-3 text-gray-400 font-medium text-xs uppercase tracking-wider">Locked</th>
-                      <th className="text-left py-2 px-3 text-gray-400 font-medium text-xs uppercase tracking-wider">Spent</th>
-                      <th className="text-left py-2 px-3 text-gray-400 font-medium text-xs uppercase tracking-wider">Remaining</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {channels.map((ch) => (
-                      <tr key={ch.channel_id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                        <td className="py-2.5 px-3 font-mono text-xs text-gray-400">{shortenCid(ch.channel_id)}</td>
-                        <td className="py-2.5 px-3 font-mono text-xs text-gray-400">{shortenCid(ch.receiver)}</td>
-                        <td className="py-2.5 px-3 text-craftec-500">{ch.locked_amount}</td>
-                        <td className="py-2.5 px-3 text-gray-600">{ch.spent}</td>
-                        <td className="py-2.5 px-3 text-green-600">{ch.remaining}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <p className="text-sm text-gray-400 text-center py-4">{connected ? "No payment channels open" : "Start the daemon to see channels"}</p>
-            )}
           </div>
         )}
       </div>

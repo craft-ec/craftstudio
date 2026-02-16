@@ -1,22 +1,11 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { Wallet, Copy, DollarSign, ArrowUpRight, ArrowDownLeft, CreditCard, CheckCircle, Clock, XCircle, Inbox } from "lucide-react";
 import { useWalletStore } from "../../store/walletStore";
 import { useActiveConnection } from "../../hooks/useDaemon";
-import { useDaemon } from "../../hooks/useDaemon";
 import type { Transaction } from "../../store/walletStore";
 import StatCard from "../../components/StatCard";
 import Modal from "../../components/Modal";
 import DaemonOffline from "../../components/DaemonOffline";
-
-interface ChannelInfo {
-  channel_id: string;
-  sender: string;
-  receiver: string;
-  locked_amount: number;
-  spent: number;
-  remaining: number;
-  nonce: number;
-}
 
 function shortenAddr(addr: string): string {
   if (!addr) return "—";
@@ -50,28 +39,12 @@ const statusColor: Record<Transaction["status"], string> = {
 };
 
 export default function WalletPage() {
-  const daemon = useDaemon();
   const { address, solBalance, usdcBalance, transactions, fundPool, error } = useWalletStore();
   const { connected } = useActiveConnection();
   const [showFund, setShowFund] = useState(false);
   const [fundAmount, setFundAmount] = useState("");
   const [copied, setCopied] = useState(false);
   const [funding, setFunding] = useState(false);
-  const [channels, setChannels] = useState<ChannelInfo[]>([]);
-
-  const loadChannels = useCallback(async () => {
-    if (!connected) return;
-    try {
-      const result = await daemon?.listChannels();
-      setChannels(result?.channels || []);
-    } catch { /* */ }
-  }, [connected]);
-
-  useEffect(() => { loadChannels(); }, [loadChannels]);
-
-  const totalLocked = channels.reduce((s, c) => s + c.locked_amount, 0);
-  const totalSpent = channels.reduce((s, c) => s + c.spent, 0);
-  const totalRemaining = channels.reduce((s, c) => s + c.remaining, 0);
 
   const handleCopy = () => {
     if (!address) return;
@@ -137,39 +110,6 @@ export default function WalletPage() {
             Fund Creator Pool
           </button>
         </div>
-      </div>
-
-      {/* Channel Summary */}
-      <div className="bg-white rounded-xl p-4 mb-6">
-        <h2 className="text-lg font-semibold mb-3">Payment Channels</h2>
-        {channels.length > 0 ? (
-          <>
-            <div className="grid grid-cols-3 gap-4 mb-4">
-              <StatCard icon={DollarSign} label="Total Locked" value={String(totalLocked)} color="text-craftec-500" />
-              <StatCard icon={DollarSign} label="Total Spent" value={String(totalSpent)} color="text-orange-400" />
-              <StatCard icon={DollarSign} label="Remaining" value={String(totalRemaining)} color="text-green-600" />
-            </div>
-            <div className="space-y-2">
-              {channels.map((ch) => (
-                <div key={ch.channel_id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
-                  <div>
-                    <p className="text-sm font-mono text-gray-700">{shortenAddr(ch.channel_id)}</p>
-                    <p className="text-xs text-gray-500">→ {shortenAddr(ch.receiver)}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm text-craftec-400">{ch.locked_amount} locked</p>
-                    <p className="text-xs text-gray-500">{ch.remaining} remaining</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-8 text-gray-500">
-            <Inbox size={32} className="mb-2 opacity-50" />
-            <p className="text-sm">{connected ? "No payment channels open" : "Start the daemon to see channel data"}</p>
-          </div>
-        )}
       </div>
 
       {/* Transaction History */}

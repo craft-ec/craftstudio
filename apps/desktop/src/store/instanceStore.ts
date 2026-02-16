@@ -276,7 +276,7 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
         category = "gossip";
       }
       // User-initiated actions
-      else if (["content_published", "content_distributed", "access_granted", "access_revoked", "channel_opened", "channel_closed", "pool_funded", "removal_published"].includes(method)) {
+      else if (["content_published", "content_distributed", "access_granted", "access_revoked", "pool_funded", "removal_published"].includes(method)) {
         category = "action";
       }
       // Maintenance
@@ -285,7 +285,7 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
       }
 
       // -- Levels --
-      if (["content_published", "access_granted", "channel_opened", "pool_funded", "peer_connected", "content_distributed", "provider_announced", "maintenance_cycle_completed"].includes(method)) {
+      if (["content_published", "access_granted", "pool_funded", "peer_connected", "content_distributed", "provider_announced", "maintenance_cycle_completed"].includes(method)) {
         level = "success";
       }
       if (["dht_error", "distribution_skipped"].includes(method) || method.includes("error")) level = "error";
@@ -485,12 +485,7 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
         case "access_revoked":
           msg = `Access revoked for ${short(p.recipient)} on ${short(p.content_id)}`;
           break;
-        case "channel_opened":
-          msg = `Payment channel opened: ${short(p.channel_id)} with ${short(p.receiver)}`;
-          break;
-        case "channel_closed":
-          msg = `Payment channel closed: ${short(p.channel_id)}`;
-          break;
+        // Payment channels removed from design
         case "pool_funded":
           msg = `Pool funded: ${p.amount ?? 0} for ${short(p.creator)}`;
           break;
