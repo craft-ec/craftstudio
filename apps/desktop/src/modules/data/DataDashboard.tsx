@@ -352,7 +352,15 @@ export default function DataDashboard() {
                                   Access
                                 </button>
                                 <button
-                                  onClick={(e) => { e.stopPropagation(); /* TODO: delete local content */ }}
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                      await daemon?.removeContent(cid);
+                                      loadContent();
+                                    } catch (err) {
+                                      console.error("Failed to delete:", err);
+                                    }
+                                  }}
                                   className="text-xs text-red-400 hover:text-red-600"
                                 >
                                   Delete
