@@ -10,16 +10,15 @@ import { invoke } from "@tauri-apps/api/core";
 import NetworkHealth from "../../../components/NetworkHealth";
 import { usePeers } from "../../../hooks/usePeers";
 
-function ProviderCount({ cid }: { cid: string }) {
-  const daemon = useDaemon();
-  const [count, setCount] = useState<number | null>(null);
-  useEffect(() => {
-    if (!cid) return;
-    daemon?.call<{ provider_count: number }>('data.providers', { cid }).then(r => setCount(r?.provider_count ?? null)).catch(() => setCount(null));
-  }, [cid]);
-  if (count === null) return <span className="text-xs text-gray-500">—</span>;
+function ProviderBadge({ count }: { count: number }) {
   if (count <= 1) return <span className="text-xs text-yellow-400">Local only</span>;
   return <span className="text-xs text-green-400">{count} nodes</span>;
+}
+
+function healthBarColor(ratio: number): string {
+  if (ratio >= 0.8) return "bg-green-500";
+  if (ratio >= 0.5) return "bg-yellow-500";
+  return "bg-red-500";
 }
 
 function formatBytes(bytes: number): string {
@@ -77,7 +76,7 @@ export default function ClientTab() {
 
   const totalLocked = channels.reduce((s, c) => s + c.locked_amount, 0);
 
-  const published = content.filter((c) => c.role !== "storage_provider");
+  const published = content.filter((c) => c.role === "publisher" || c.role === "unknown");
 
   const handlePublish = async () => {
     if (!filePath.trim()) return;
@@ -148,14 +147,28 @@ export default function ClientTab() {
         </div>
         <DataTable
           columns={[
-            { key: "name", header: "Name" },
-            { key: "cid", header: "CID", render: (item) => <span className="font-mono text-xs text-gray-400">{shortenCid(String(item.cid))}</span> },
+            { key: "name", header: "Name", render: (item) => (
+              <span>{String(item.name)}{item.hot ? <span className="ml-1" title="Hot content">🔥</span> : null}</span>
+            )},
+            { key: "content_id", header: "CID", render: (item) => <span className="font-mono text-xs text-gray-400">{shortenCid(String(item.content_id))}</span> },
             { key: "size", header: "Size", render: (item) => formatBytes(Number(item.size)) },
             { key: "encrypted", header: "Enc", render: (item) => item.encrypted ? <Lock size={14} className="text-craftec-400" /> : <Unlock size={14} className="text-gray-500" /> },
-            { key: "shards", header: "Shards" },
-            { key: "distribution", header: "Distribution", render: (item) => <ProviderCount cid={String(item.cid)} /> },
+            { key: "segments", header: "Segments", render: (item) => <span>{String(item.segment_count || 0)}</span> },
+            { key: "health", header: "Health", render: (item) => {
+              const ratio = Number(item.health_ratio || 0);
+              return (
+                <div className="flex items-center gap-2 w-28">
+                  <div className="flex-1 bg-gray-800 rounded-full h-2">
+                    <div className={`h-2 rounded-full ${healthBarColor(ratio)}`} style={{ width: `${Math.min(100, ratio * 100)}%` }} />
+                  </div>
+                  <span className="text-xs text-gray-400 w-8 text-right">{(ratio * 100).toFixed(0)}%</span>
+                </div>
+              );
+            }},
+            { key: "providers", header: "Distribution", render: (item) => <ProviderBadge count={Number(item.provider_count || 0)} /> },
+            { key: "stage", header: "Stage", render: (item) => <span className="text-xs text-gray-400">{String(item.stage || "")}</span> },
             { key: "actions", header: "", render: (item) => (
-              <button onClick={() => setShowAccess(String(item.cid))} className="text-xs text-craftec-400 hover:text-craftec-300">Access</button>
+              <button onClick={() => setShowAccess(String(item.content_id))} className="text-xs text-craftec-400 hover:text-craftec-300">Access</button>
             )},
           ]}
           data={published as unknown as Record<string, unknown>[]}

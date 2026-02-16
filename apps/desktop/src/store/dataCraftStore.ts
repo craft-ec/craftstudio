@@ -8,15 +8,22 @@ function getDaemon() {
 }
 
 export interface ContentItem {
-  cid: string;
+  content_id: string;
   name: string;
   size: number;
   encrypted: boolean;
-  shards: number;
-  healthRatio: number;
-  poolBalance: number;
-  publishedAt: string;
+  segment_count: number;
+  k: number;
+  local_pieces: number;
+  remote_pieces: number;
+  provider_count: number;
+  health_ratio: number;
+  min_rank: number;
+  local_disk_usage: number;
+  hot: boolean;
+  pinned: boolean;
   role: "publisher" | "storage_provider" | "unknown";
+  stage: string;
   creator: string;
 }
 
@@ -47,27 +54,26 @@ export const useDataCraftStore = create<DataCraftState>((set) => ({
   loadContent: async () => {
     set({ loading: true, error: null });
     try {
-      const items = await getDaemon().listContent();
-      const toHex = (v: unknown): string => {
-        if (typeof v === 'string') return v;
-        if (Array.isArray(v)) return v.map((b: number) => b.toString(16).padStart(2, '0')).join('');
-        return String(v || '');
-      };
-      const content: ContentItem[] = (items || []).map((item: Record<string, unknown>) => {
-        const cid = toHex(item.content_id || item.cid);
-        return {
-          cid,
-          name: String(item.name || cid.slice(0, 16)),
-          size: Number(item.total_size || item.size || 0),
-          encrypted: Boolean(item.encrypted),
-          shards: Number(item.chunk_count || item.chunks || 0),
-          healthRatio: 1.0,
-          poolBalance: 0,
-          publishedAt: new Date().toISOString(),
-          role: (item.role as "publisher" | "storage_provider") || "unknown",
-          creator: String(item.creator || ""),
-        };
-      });
+      const items = await getDaemon().contentListDetailed();
+      const content: ContentItem[] = (items || []).map((item) => ({
+        content_id: item.content_id,
+        name: item.name || item.content_id.slice(0, 16),
+        size: item.total_size || item.size || 0,
+        encrypted: item.encrypted,
+        segment_count: item.segment_count,
+        k: item.k,
+        local_pieces: item.local_pieces,
+        remote_pieces: item.remote_pieces,
+        provider_count: item.provider_count,
+        health_ratio: item.health_ratio,
+        min_rank: item.min_rank,
+        local_disk_usage: item.local_disk_usage,
+        hot: item.hot,
+        pinned: item.pinned,
+        role: (item.role as "publisher" | "storage_provider") || "unknown",
+        stage: item.stage,
+        creator: item.creator,
+      }));
       set({ content, loading: false });
     } catch (e) {
       set({ loading: false, error: (e as Error).message });
@@ -81,15 +87,22 @@ export const useDataCraftStore = create<DataCraftState>((set) => ({
       set((state) => ({
         content: [
           {
-            cid: result.cid,
+            content_id: result.cid,
             name: path.split("/").pop() || path,
             size: result.size,
             encrypted,
-            shards: result.chunks,
-            healthRatio: 1.0,
-            poolBalance: 0,
-            publishedAt: new Date().toISOString(),
+            segment_count: 0,
+            k: 0,
+            local_pieces: 0,
+            remote_pieces: 0,
+            provider_count: 0,
+            health_ratio: 0,
+            min_rank: 0,
+            local_disk_usage: 0,
+            hot: false,
+            pinned: false,
             role: "publisher",
+            stage: "publishing",
             creator: "",
           },
           ...state.content,

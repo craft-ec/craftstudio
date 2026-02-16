@@ -45,17 +45,22 @@ export interface ContentHealthResponse {
 export interface ContentDetailedItem {
   content_id: string;
   name: string;
+  total_size: number;
   size: number;
-  chunks: number;
+  segment_count: number;
+  k: number;
+  local_pieces: number;
+  remote_pieces: number;
+  provider_count: number;
   pinned: boolean;
+  encrypted: boolean;
   role: string;
   stage: string;
   min_rank: number;
   health_ratio: number;
   local_disk_usage: number;
   hot: boolean;
-  provider_count?: number;
-  encrypted?: boolean;
+  creator: string;
 }
 
 export interface SegmentDetail {
