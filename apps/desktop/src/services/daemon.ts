@@ -469,6 +469,11 @@ class DaemonClient {
     return this.call<NodeStatsResponse>("node.stats");
   }
 
+  // Lifecycle
+  shutdown() {
+    return this.call<{ status: string }>("shutdown");
+  }
+
   // Peers
   listPeers() {
     return this.call<Record<string, { capabilities: string[]; score: number; avg_latency_ms: number; storage_committed_bytes: number; storage_used_bytes: number }>>("peers");

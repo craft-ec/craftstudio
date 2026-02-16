@@ -15,7 +15,7 @@ import {
 import { invoke } from "@tauri-apps/api/core";
 import { useInstanceStore } from "../../store/instanceStore";
 import { useDaemon, useActiveConnection } from "../../hooks/useDaemon";
-import { destroyClient } from "../../services/daemon";
+// daemon client accessed via useDaemon hook
 import StatCard from "../../components/StatCard";
 import NetworkHealth from "../../components/NetworkHealth";
 import ActivityLog from "../../components/ActivityLog";
@@ -57,19 +57,15 @@ export default function DashboardPage() {
     if (!instance) return;
     logActivity(instance.id, "Stopping daemon...", "warn");
     try {
-      const daemons = await invoke<Array<{ pid: number; ws_port: number }>>('list_datacraft_daemons');
-      const running = daemons.find(d => d.ws_port === instance.ws_port);
-      destroyClient(instance.id);
-      if (running) {
-        await invoke('stop_datacraft_daemon', { pid: running.pid });
-        logActivity(instance.id, "Daemon stopped", "success");
-      } else {
-        logActivity(instance.id, "No running daemon found", "warn");
+      // Send shutdown RPC over the existing WebSocket connection
+      if (client && connected) {
+        await client.shutdown();
       }
+      logActivity(instance.id, "Daemon stopped", "success");
     } catch (e) {
       logActivity(instance.id, `Stop failed: ${e}`, "error");
     }
-  }, [instance, logActivity]);
+  }, [instance, client, connected, logActivity]);
 
   const handleStart = useCallback(async () => {
     if (!instance) return;

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Plus, X, Play, Square } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { useInstanceStore } from "../store/instanceStore";
+import { getClient } from "../services/daemon";
 
 interface Props {
   onAddInstance: () => void;
@@ -61,16 +62,18 @@ export default function InstanceTabBar({ onAddInstance }: Props) {
   const stopAll = async () => {
     setBusy(true);
     try {
-      const running = await invoke<Array<{ pid: number; ws_port: number }>>("list_datacraft_daemons");
       for (const inst of instances) {
-        const match = running.find((d) => d.ws_port === inst.ws_port);
-        if (match) {
-          try {
-            await invoke("stop_datacraft_daemon", { pid: match.pid });
-            logActivity(inst.id, "Daemon stopped", "info");
-          } catch (e) {
-            logActivity(inst.id, `Stop failed: ${e}`, "warn");
+        const status = connectionStatus[inst.id] ?? "disconnected";
+        if (status !== "connected") continue;
+        try {
+          // Send shutdown RPC to the daemon over its WebSocket connection
+          const client = getClient(inst.id);
+          if (client) {
+            await client.shutdown();
           }
+          logActivity(inst.id, "Daemon stopped", "info");
+        } catch (e) {
+          logActivity(inst.id, `Stop failed: ${e}`, "warn");
         }
       }
     } finally {
