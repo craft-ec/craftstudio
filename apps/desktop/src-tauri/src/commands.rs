@@ -136,11 +136,11 @@ pub fn discover_local_daemons() -> Vec<LocalDaemonConfig> {
             let path = entry.path();
             if path.is_dir() {
                 let name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
-                if name.starts_with("datacraft-node-") {
+                if name.starts_with("datacraft-node-") || name.starts_with("datacraft-") {
                     let index: u16 = name.trim_start_matches("datacraft-node-")
                         .parse().unwrap_or(0);
                     let port = 9091 + index;
-                    results.push(probe_daemon_dir(&path, &format!("Test Node {}", index), Some(port)));
+                    results.push(probe_daemon_dir(&path, &name, Some(port)));
                 }
             }
         }

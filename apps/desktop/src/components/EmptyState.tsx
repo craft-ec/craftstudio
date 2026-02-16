@@ -48,7 +48,6 @@ export default function EmptyState() {
         },
       });
       const inst = makeInstanceConfig({
-        name: `Local Node (:${result.ws_port})`,
         autoStart: true,
         dataDir: result.data_dir,
         ws_port: result.ws_port,
