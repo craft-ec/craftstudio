@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Database, Upload, Download, Lock, Unlock, UserPlus, UserMinus,
   Pin, ChevronDown, ChevronRight, FolderOpen, Inbox,
@@ -145,10 +145,14 @@ export default function DataDashboard() {
   // PDP & Receipts
   const [receipts, setReceipts] = useState<StorageReceipt[]>([]);
   const [totalReceipts, setTotalReceipts] = useState(0);
-  const [showPdp, setShowPdp] = useState(false);
+  const [showPdp, setShowPdp] = useState(() => localStorage.getItem("dc:showPdp") === "true");
 
   // Aggregator
-  const [showAggregator, setShowAggregator] = useState(false);
+  const [showAggregator, setShowAggregator] = useState(() => localStorage.getItem("dc:showAggregator") === "true");
+
+  // Persist collapsible states
+  const togglePdp = () => { setShowPdp(v => { localStorage.setItem("dc:showPdp", String(!v)); return !v; }); };
+  const toggleAggregator = () => { setShowAggregator(v => { localStorage.setItem("dc:showAggregator", String(!v)); return !v; }); };
 
   // ── Data loading ────────────────────────────────────────
 
@@ -289,43 +293,43 @@ export default function DataDashboard() {
                   const isExpanded = expandedCid === cid;
                   const badge = roleBadge(item.role);
                   return (
-                    <tr key={cid} className="group">
-                      <td colSpan={10} className="p-0">
-                        <div
-                          className="flex items-center border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors"
-                          onClick={() => setExpandedCid(isExpanded ? null : cid)}
-                        >
-                          <div className="py-2.5 px-3 w-6">
-                            {isExpanded ? <ChevronDown size={14} className="text-gray-400" /> : <ChevronRight size={14} className="text-gray-400" />}
+                    <React.Fragment key={cid}>
+                      <tr
+                        className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors"
+                        onClick={() => setExpandedCid(isExpanded ? null : cid)}
+                      >
+                        <td className="py-2.5 px-3 w-6">
+                          {isExpanded ? <ChevronDown size={14} className="text-gray-400" /> : <ChevronRight size={14} className="text-gray-400" />}
+                        </td>
+                        <td className="py-2.5 px-3">
+                          <span className="font-medium text-gray-900 truncate">{item.name || shortenCid(cid)}</span>
+                          {item.hot && <span className="ml-1" title="Hot content">🔥</span>}
+                        </td>
+                        <td className="py-2.5 px-3 text-gray-600">{formatBytes(item.total_size)}</td>
+                        <td className="py-2.5 px-3">
+                          <div className="flex items-center gap-1.5">
+                            <span className={`w-2 h-2 rounded-full ${healthDot(item.health_ratio)}`} />
+                            <span className="text-xs text-gray-600">{(item.health_ratio * 100).toFixed(0)}%</span>
                           </div>
-                          <div className="py-2.5 px-3 flex-1 min-w-0">
-                            <span className="font-medium text-gray-900 truncate">{item.name || shortenCid(cid)}</span>
-                            {item.hot && <span className="ml-1" title="Hot content">🔥</span>}
-                          </div>
-                          <div className="py-2.5 px-3 text-gray-600">{formatBytes(item.total_size)}</div>
-                          <div className="py-2.5 px-3">
-                            <div className="flex items-center gap-1.5">
-                              <span className={`w-2 h-2 rounded-full ${healthDot(item.health_ratio)}`} />
-                              <span className="text-xs text-gray-600">{(item.health_ratio * 100).toFixed(0)}%</span>
-                            </div>
-                          </div>
-                          <div className="py-2.5 px-3">
-                            <span className={`px-1.5 py-0.5 rounded text-xs ${badge.cls}`}>{badge.label}</span>
-                          </div>
-                          <div className="py-2.5 px-3 text-gray-600">{item.segment_count}</div>
-                          <div className="py-2.5 px-3">
-                            {item.provider_count <= 1
-                              ? <span className="text-xs text-amber-500">Local only</span>
-                              : <span className="text-xs text-green-600">{item.provider_count} nodes</span>
-                            }
-                          </div>
-                          <div className="py-2.5 px-3 w-8">
-                            {item.pinned && <span title="Pinned"><Pin size={14} className="text-craftec-400" /></span>}
-                          </div>
-                          <div className="py-2.5 px-3 w-8">
-                            {item.encrypted ? <span title="Encrypted"><Lock size={14} className="text-craftec-400" /></span> : <span title="Unencrypted"><Unlock size={14} className="text-gray-300" /></span>}
-                          </div>
-                          <div className="py-2.5 px-3 flex items-center gap-2">
+                        </td>
+                        <td className="py-2.5 px-3">
+                          <span className={`px-1.5 py-0.5 rounded text-xs ${badge.cls}`}>{badge.label}</span>
+                        </td>
+                        <td className="py-2.5 px-3 text-gray-600">{item.segment_count}</td>
+                        <td className="py-2.5 px-3">
+                          {item.provider_count <= 1
+                            ? <span className="text-xs text-amber-500">Local only</span>
+                            : <span className="text-xs text-green-600">{item.provider_count} nodes</span>
+                          }
+                        </td>
+                        <td className="py-2.5 px-3 w-8">
+                          {item.pinned && <span title="Pinned"><Pin size={14} className="text-craftec-400" /></span>}
+                        </td>
+                        <td className="py-2.5 px-3 w-8">
+                          {item.encrypted ? <span title="Encrypted"><Lock size={14} className="text-craftec-400" /></span> : <span title="Unencrypted"><Unlock size={14} className="text-gray-300" /></span>}
+                        </td>
+                        <td className="py-2.5 px-3">
+                          <div className="flex items-center gap-2">
                             <button
                               onClick={(e) => { e.stopPropagation(); setDetailCid(cid); }}
                               className="text-xs text-craftec-500 hover:text-craftec-600 font-medium"
@@ -341,10 +345,12 @@ export default function DataDashboard() {
                               </button>
                             )}
                           </div>
-                        </div>
-                        {isExpanded && <SegmentExpander cid={cid} />}
-                      </td>
-                    </tr>
+                        </td>
+                      </tr>
+                      {isExpanded && (
+                        <tr><td colSpan={10} className="p-0"><SegmentExpander cid={cid} /></td></tr>
+                      )}
+                    </React.Fragment>
                   );
                 })}
               </tbody>
@@ -362,7 +368,7 @@ export default function DataDashboard() {
       {hasStorage && (
         <div className="bg-white rounded-xl p-4 mb-6 shadow-sm border border-gray-200">
           <button
-            onClick={() => setShowPdp(!showPdp)}
+            onClick={togglePdp}
             className="flex items-center gap-2 w-full text-left"
           >
             {showPdp ? <ChevronDown size={16} className="text-gray-400" /> : <ChevronRight size={16} className="text-gray-400" />}
@@ -414,7 +420,7 @@ export default function DataDashboard() {
       {hasAggregator && (
         <div className="bg-white rounded-xl p-4 mb-6 shadow-sm border border-gray-200">
           <button
-            onClick={() => setShowAggregator(!showAggregator)}
+            onClick={toggleAggregator}
             className="flex items-center gap-2 w-full text-left"
           >
             {showAggregator ? <ChevronDown size={16} className="text-gray-400" /> : <ChevronRight size={16} className="text-gray-400" />}
