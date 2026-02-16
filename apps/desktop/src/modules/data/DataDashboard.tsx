@@ -355,7 +355,7 @@ export default function DataDashboard() {
                                   onClick={async (e) => {
                                     e.stopPropagation();
                                     try {
-                                      await daemon?.removeContent(cid);
+                                      await daemon?.deleteLocalContent(cid);
                                       loadContent();
                                     } catch (err) {
                                       console.error("Failed to delete:", err);

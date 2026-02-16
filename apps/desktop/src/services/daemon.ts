@@ -330,8 +330,8 @@ class DaemonClient {
     return this.call<{ path: string }>("fetch", { cid, ...(output && { output }), ...(key && { key }) });
   }
 
-  removeContent(cid: string) {
-    return this.call<{ removed: boolean }>("data.remove", { cid });
+  deleteLocalContent(cid: string) {
+    return this.call<{ deleted: boolean }>("data.delete_local", { cid });
   }
 
   listContent() {
