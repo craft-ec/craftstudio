@@ -32,7 +32,7 @@ function Toggle({
   return (
     <label className="flex items-center justify-between cursor-pointer group">
       <div>
-        <span className="text-sm text-gray-300 group-hover:text-gray-100">{label}</span>
+        <span className="text-sm text-gray-700 group-hover:text-gray-900">{label}</span>
         {hint && <p className="text-xs text-gray-500 mt-0.5">{hint}</p>}
       </div>
       <button
@@ -41,7 +41,7 @@ function Toggle({
         aria-checked={checked}
         onClick={() => onChange(!checked)}
         className={`relative w-10 h-5 rounded-full transition-colors flex-shrink-0 ${
-          checked ? 'bg-craftec-500' : 'bg-gray-700'
+          checked ? 'bg-craftec-500' : 'bg-gray-200'
         }`}
       >
         <span
@@ -83,7 +83,7 @@ function Input({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         readOnly={readOnly}
-        className={`w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-craftec-500 focus:ring-1 focus:ring-craftec-500/30 transition-colors ${
+        className={`w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-500 focus:outline-none focus:border-craftec-500 focus:ring-2 focus:ring-craftec-500/20 transition-colors ${
           mono ? 'font-mono' : ''
         } ${readOnly ? 'opacity-60 cursor-not-allowed' : ''}`}
       />
@@ -108,7 +108,7 @@ function Select({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-craftec-500 focus:ring-1 focus:ring-craftec-500/30 transition-colors"
+        className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-craftec-500 focus:ring-2 focus:ring-craftec-500/20 transition-colors"
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>
@@ -132,16 +132,16 @@ function Section({
   onReset?: () => void;
 }) {
   return (
-    <div className="bg-gray-900 rounded-xl p-5 space-y-4">
+    <div className="bg-white rounded-xl p-5 space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold flex items-center gap-2 text-gray-100">
+        <h2 className="text-lg font-semibold flex items-center gap-2 text-gray-900">
           <Icon className="text-craftec-500" size={20} />
           {title}
         </h2>
         {onReset && (
           <button
             onClick={onReset}
-            className="flex items-center gap-1 px-2 py-1 text-xs rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
+            className="flex items-center gap-1 px-2 py-1 text-xs rounded-lg bg-gray-100 hover:bg-gray-50 text-gray-400 hover:text-gray-800 transition-colors"
             title="Reset to defaults"
           >
             <RotateCcw size={12} /> Reset
@@ -174,7 +174,7 @@ function Slider({
     <label className="block">
       <div className="flex justify-between mb-1">
         <span className="text-sm text-gray-400">{label}</span>
-        <span className="text-sm text-gray-300 font-mono">
+        <span className="text-sm text-gray-700 font-mono">
           {value} {unit}
         </span>
       </div>
@@ -250,9 +250,9 @@ export default function SettingsPage() {
         {/* ── Per-Instance Settings ── */}
         {instance ? (
           <>
-            <div className="border-b border-gray-800 pb-2 mb-2">
+            <div className="border-b border-gray-200 pb-2 mb-2">
               <p className="text-xs text-gray-500 uppercase tracking-wider">
-                Instance: <span className="text-gray-300">{instance.name}</span>
+                Instance: <span className="text-gray-700">{instance.name}</span>
               </p>
             </div>
 
@@ -326,10 +326,10 @@ export default function SettingsPage() {
                 mono
               />
               <div className="flex gap-2 pt-1">
-                <button className="px-3 py-1.5 text-xs rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition-colors">
+                <button className="px-3 py-1.5 text-xs rounded-lg bg-gray-100 hover:bg-gray-50 text-gray-700 transition-colors">
                   Export Keypair
                 </button>
-                <button className="px-3 py-1.5 text-xs rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition-colors">
+                <button className="px-3 py-1.5 text-xs rounded-lg bg-gray-100 hover:bg-gray-50 text-gray-700 transition-colors">
                   Import Keypair
                 </button>
               </div>
@@ -424,13 +424,13 @@ export default function SettingsPage() {
             </Section>
           </>
         ) : (
-          <div className="bg-gray-900 rounded-xl p-5 text-center text-gray-500 text-sm">
+          <div className="bg-white rounded-xl p-5 text-center text-gray-500 text-sm">
             No active instance selected. Create or select an instance to configure per-instance settings.
           </div>
         )}
 
         {/* ── Global: Network / Solana ── */}
-        <div className="border-t border-gray-800 pt-4 mt-4">
+        <div className="border-t border-gray-200 pt-4 mt-4">
           <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Global Settings</p>
         </div>
 

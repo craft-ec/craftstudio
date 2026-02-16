@@ -13,29 +13,29 @@ export default function StatusBar() {
     s.instances.find((i) => i.id === s.activeId)
   );
 
-  const tunnelColor = status === "connected" ? "text-green-400" : status === "connecting" ? "text-yellow-400" : "text-gray-500";
-  const daemonColor = daemonConnected ? "text-green-400" : "text-red-400";
+  const tunnelColor = status === "connected" ? "text-green-600" : status === "connecting" ? "text-amber-500" : "text-gray-400";
+  const daemonColor = daemonConnected ? "text-green-600" : "text-red-500";
   const clusterLabel = cluster === "mainnet-beta" ? "Mainnet" : cluster === "devnet" ? "Devnet" : "Custom";
 
   return (
-    <div className="h-8 bg-gray-900 border-t border-gray-800 flex items-center px-4 text-xs gap-6">
-      <span className="text-gray-400 font-medium">{clusterLabel}</span>
+    <div className="h-8 bg-white border-t border-gray-200 flex items-center px-4 text-xs gap-6">
+      <span className="text-gray-500 font-medium">{clusterLabel}</span>
       {activeInstance && (
-        <span className="text-gray-500">{activeInstance.name}</span>
+        <span className="text-gray-400">{activeInstance.name}</span>
       )}
       <span className={daemonColor}>
         ● Daemon {daemonConnected ? "Online" : "Offline"}
       </span>
       {daemonConnected && (
-        <span className="text-gray-400">
+        <span className="text-gray-500">
           👥 {peerCount} peers ({storagePeers} storage)
         </span>
       )}
       <span className={tunnelColor}>
         ● Tunnel {status.charAt(0).toUpperCase() + status.slice(1)}
       </span>
-      <span className="text-gray-400">↑ {formatSpeed(speedUp)}</span>
-      <span className="text-gray-400">↓ {formatSpeed(speedDown)}</span>
+      <span className="text-gray-500">↑ {formatSpeed(speedUp)}</span>
+      <span className="text-gray-500">↓ {formatSpeed(speedDown)}</span>
     </div>
   );
 }

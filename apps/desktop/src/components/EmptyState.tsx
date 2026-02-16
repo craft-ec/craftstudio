@@ -104,18 +104,18 @@ export default function EmptyState() {
   };
 
   return (
-    <div className="flex-1 flex items-center justify-center bg-gray-950">
+    <div className="flex-1 flex items-center justify-center bg-gray-50">
       <div className="text-center max-w-lg">
         <Server className="w-16 h-16 text-craftec-500 mx-auto mb-6 opacity-50" />
-        <h1 className="text-2xl font-bold text-gray-200 mb-2">CraftStudio</h1>
+        <h1 className="text-2xl font-bold text-gray-800 mb-2">CraftStudio</h1>
         <p className="text-gray-500 mb-8">
           Start a new node or load an existing configuration.
         </p>
 
         {error && (
-          <div className="bg-red-900/30 border border-red-800 rounded-lg px-4 py-3 mb-6 flex items-start gap-2 text-left">
-            <AlertCircle size={16} className="text-red-400 mt-0.5 shrink-0" />
-            <p className="text-sm text-red-300">{error}</p>
+          <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-6 flex items-start gap-2 text-left">
+            <AlertCircle size={16} className="text-red-500 mt-0.5 shrink-0" />
+            <p className="text-sm text-red-600">{error}</p>
           </div>
         )}
 
@@ -143,11 +143,11 @@ export default function EmptyState() {
                 <button
                   key={config.data_dir}
                   onClick={() => loadExisting(config)}
-                  className="flex items-center gap-3 w-full px-4 py-3 bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors text-left"
+                  className="flex items-center gap-3 w-full px-4 py-3 bg-white hover:bg-gray-50 rounded-lg transition-colors text-left"
                 >
                   <HardDrive size={16} className="text-gray-400 shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-200">{config.name}</p>
+                    <p className="text-sm font-medium text-gray-800">{config.name}</p>
                     <p className="text-xs text-gray-500 font-mono truncate">{config.data_dir}</p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -163,7 +163,7 @@ export default function EmptyState() {
             </div>
           </div>
         ) : (
-          <p className="text-sm text-gray-600">No existing daemon configurations found.</p>
+          <p className="text-sm text-gray-400">No existing daemon configurations found.</p>
         )}
       </div>
     </div>

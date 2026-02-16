@@ -14,9 +14,9 @@ const levelIcon: Record<ActivityEvent["level"], typeof Info> = {
 
 const levelColor: Record<ActivityEvent["level"], string> = {
   info: "text-gray-400",
-  success: "text-green-400",
-  warn: "text-yellow-400",
-  error: "text-red-400",
+  success: "text-green-600",
+  warn: "text-amber-500",
+  error: "text-red-500",
 };
 
 const categoryMeta: Record<ActivityCategory, { label: string; color: string; icon: typeof Info }> = {
@@ -61,8 +61,8 @@ export default function DataCraftActivity() {
   }, [log.length]);
 
   return (
-    <div className="bg-gray-900 rounded-xl p-4 mt-6">
-      <h2 className="text-sm font-semibold text-gray-300 mb-3">Activity Feed</h2>
+    <div className="bg-white rounded-xl p-4 mt-6">
+      <h2 className="text-sm font-semibold text-gray-700 mb-3">Activity Feed</h2>
 
       {/* Filter tabs */}
       <div className="flex gap-1 mb-3">
@@ -73,7 +73,7 @@ export default function DataCraftActivity() {
             className={`px-2.5 py-1 text-xs rounded-lg transition-colors ${
               filter === f.key
                 ? "bg-craftec-500/20 text-craftec-400"
-                : "text-gray-500 hover:text-gray-300 hover:bg-gray-800"
+                : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
             }`}
           >
             {f.label}
@@ -84,7 +84,7 @@ export default function DataCraftActivity() {
       {/* Event list */}
       <div ref={scrollRef} className="space-y-1 max-h-64 overflow-y-auto">
         {reversed.length === 0 ? (
-          <p className="text-xs text-gray-600 text-center py-4">No activity yet</p>
+          <p className="text-xs text-gray-400 text-center py-4">No activity yet</p>
         ) : (
           reversed.map((event, i) => {
             const Icon = levelIcon[event.level];
@@ -96,7 +96,7 @@ export default function DataCraftActivity() {
                 <span className={`px-1.5 py-0 rounded text-[10px] leading-4 shrink-0 ${cat.color}`}>
                   {cat.label}
                 </span>
-                <span className={event.level === "error" ? "text-red-300" : "text-gray-300"}>
+                <span className={event.level === "error" ? "text-red-600" : "text-gray-700"}>
                   {event.message}
                 </span>
               </div>

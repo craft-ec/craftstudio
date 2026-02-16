@@ -144,15 +144,15 @@ export default function DashboardPage() {
       </h1>
 
       {/* Connection Status */}
-      <div className="bg-gray-900 rounded-xl p-6 mb-6 flex items-center justify-between">
+      <div className="bg-white rounded-xl p-6 mb-6 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div
             className={`w-4 h-4 rounded-full ${
               connStatus === "connected"
-                ? "bg-green-400 animate-pulse"
+                ? "bg-green-500 animate-pulse"
                 : connStatus === "connecting"
-                ? "bg-yellow-400 animate-pulse"
-                : "bg-red-400"
+                ? "bg-amber-400 animate-pulse"
+                : "bg-red-500"
             }`}
           />
           <div>
@@ -174,7 +174,7 @@ export default function DashboardPage() {
                   onClick={handleRestart}
                   disabled={restarting}
                   title="Restart daemon"
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-yellow-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-gray-100 hover:bg-gray-50 text-gray-700 hover:text-amber-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <RotateCw size={14} className={restarting ? "animate-spin" : ""} />
                   Restart
@@ -182,7 +182,7 @@ export default function DashboardPage() {
                 <button
                   onClick={handleStop}
                   title="Stop daemon"
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-red-400 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-gray-100 hover:bg-gray-50 text-gray-700 hover:text-red-500 transition-colors"
                 >
                   <PowerOff size={14} />
                   Stop
@@ -213,7 +213,7 @@ export default function DashboardPage() {
           icon={Activity}
           label="Status"
           value={connected ? "Online" : "Offline"}
-          color={connected ? "text-green-400" : "text-red-400"}
+          color={connected ? "text-green-600" : "text-red-500"}
         />
         <StatCard
           icon={Users}
@@ -236,7 +236,7 @@ export default function DashboardPage() {
 
       {/* Capability Badges */}
       {caps && (
-        <div className="bg-gray-900 rounded-xl p-4 mb-6">
+        <div className="bg-white rounded-xl p-4 mb-6">
           <h2 className="text-lg font-semibold mb-3">Capabilities</h2>
           <div className="flex gap-3">
             {[
@@ -251,7 +251,7 @@ export default function DashboardPage() {
                   className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm ${
                     enabled
                       ? "bg-craftec-600/20 text-craftec-400 border border-craftec-600/30"
-                      : "bg-gray-800 text-gray-500 border border-gray-700"
+                      : "bg-gray-100 text-gray-500 border border-gray-200"
                   }`}
                 >
                   <Icon size={14} />
@@ -265,7 +265,7 @@ export default function DashboardPage() {
 
       {/* Node DID */}
       {did && (
-        <div className="bg-gray-900 rounded-xl p-4 mb-6">
+        <div className="bg-white rounded-xl p-4 mb-6">
           <h2 className="text-lg font-semibold mb-2">Node DID</h2>
           <p className="text-sm text-gray-400 font-mono break-all">{did}</p>
         </div>

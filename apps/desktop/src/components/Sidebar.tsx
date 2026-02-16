@@ -18,20 +18,23 @@ const navItems: { page: Page; icon: typeof Shield; label: string }[] = [
 
 export default function Sidebar({ activePage, onNavigate }: Props) {
   return (
-    <nav className="w-16 bg-gray-900 border-r border-gray-800 flex flex-col items-center py-4 gap-2">
-      <div className="text-craftec-500 font-bold text-lg mb-4">CS</div>
+    <nav className="w-56 bg-white border-r border-gray-200 flex flex-col py-4 px-3 gap-1 shrink-0">
+      <div className="flex items-center gap-2 px-3 mb-6">
+        <div className="w-8 h-8 rounded-lg bg-craftec-500 flex items-center justify-center text-white font-bold text-sm">CS</div>
+        <span className="font-semibold text-gray-900">CraftStudio</span>
+      </div>
       {navItems.map(({ page, icon: Icon, label }) => (
         <button
           key={page}
           onClick={() => onNavigate(page)}
-          title={label}
-          className={`w-10 h-10 flex items-center justify-center rounded-lg transition-colors ${
+          className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
             activePage === page
-              ? "bg-craftec-600 text-white"
-              : "text-gray-400 hover:bg-gray-800 hover:text-gray-200"
+              ? "bg-craftec-50 text-craftec-600 shadow-sm"
+              : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
           }`}
         >
-          <Icon size={20} />
+          <Icon size={18} />
+          {label}
         </button>
       ))}
     </nav>

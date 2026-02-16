@@ -40,13 +40,13 @@ export default function IdentityPage() {
       </h1>
 
       <div className="space-y-4">
-        <div className="bg-gray-900 rounded-xl p-6">
+        <div className="bg-white rounded-xl p-6">
           <p className="text-sm text-gray-400 mb-1">DID</p>
           <p className="font-mono text-sm break-all">{did ?? "Not initialized"}</p>
         </div>
 
         {walletAddress && (
-          <div className="bg-gray-900 rounded-xl p-6">
+          <div className="bg-white rounded-xl p-6">
             <p className="text-sm text-gray-400 mb-1">Wallet Address</p>
             <div className="flex items-center gap-2">
               <p className="font-mono text-sm break-all">{walletAddress}</p>
@@ -55,18 +55,18 @@ export default function IdentityPage() {
                 className="text-gray-400 hover:text-white transition-colors shrink-0"
                 title="Copy address"
               >
-                {copied ? <CheckCircle size={16} className="text-green-400" /> : <Copy size={16} />}
+                {copied ? <CheckCircle size={16} className="text-green-600" /> : <Copy size={16} />}
               </button>
             </div>
           </div>
         )}
 
-        <div className="bg-gray-900 rounded-xl p-6">
+        <div className="bg-white rounded-xl p-6">
           <p className="text-sm text-gray-400 mb-1">Keypair Path</p>
-          <p className="font-mono text-sm text-gray-300">{keypairPath || "No instance selected"}</p>
+          <p className="font-mono text-sm text-gray-700">{keypairPath || "No instance selected"}</p>
         </div>
 
-        <div className="bg-gray-900 rounded-xl p-6">
+        <div className="bg-white rounded-xl p-6">
           <p className="text-sm text-gray-400 mb-1">Network</p>
           <p className="text-sm">
             {cluster === "mainnet-beta" ? "Mainnet" : cluster === "devnet" ? "Devnet" : "Custom"}

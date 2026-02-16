@@ -38,10 +38,10 @@ export default function ContentHealthDetail({ cid, onClose }: Props) {
 
   if (error) {
     return (
-      <div className="bg-gray-900 rounded-xl p-4 mb-4">
+      <div className="bg-white rounded-xl p-4 mb-4">
         <div className="flex justify-between items-center mb-2">
-          <span className="text-sm text-red-400">Error loading health: {error}</span>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-300"><X size={16} /></button>
+          <span className="text-sm text-red-500">Error loading health: {error}</span>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700"><X size={16} /></button>
         </div>
       </div>
     );
@@ -49,14 +49,14 @@ export default function ContentHealthDetail({ cid, onClose }: Props) {
 
   if (!data) {
     return (
-      <div className="bg-gray-900 rounded-xl p-4 mb-4 animate-pulse">
+      <div className="bg-white rounded-xl p-4 mb-4 animate-pulse">
         <span className="text-sm text-gray-500">Loading health data…</span>
       </div>
     );
   }
 
   return (
-    <div className="bg-gray-900 rounded-xl p-4 mb-4 border border-gray-800">
+    <div className="bg-white rounded-xl p-4 mb-4 border border-gray-200">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
@@ -65,12 +65,12 @@ export default function ContentHealthDetail({ cid, onClose }: Props) {
             <span className="font-mono">{truncHash(data.content_id)}</span>
             <span>·</span>
             <span>{formatBytes(data.original_size)}</span>
-            <span className="px-1.5 py-0.5 rounded bg-gray-800 text-gray-300">{data.role}</span>
-            <span className="px-1.5 py-0.5 rounded bg-gray-800 text-gray-300">{data.stage}</span>
+            <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-700">{data.role}</span>
+            <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-700">{data.stage}</span>
             {data.pinned && <Pin size={12} className="text-craftec-400" />}
           </div>
         </div>
-        <button onClick={onClose} className="text-gray-500 hover:text-gray-300"><X size={16} /></button>
+        <button onClick={onClose} className="text-gray-500 hover:text-gray-700"><X size={16} /></button>
       </div>
 
       {/* Health summary */}
@@ -86,7 +86,7 @@ export default function ContentHealthDetail({ cid, onClose }: Props) {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-800">
+              <tr className="border-b border-gray-200">
                 <th className="text-left py-1 px-2 text-gray-400 font-medium">Idx</th>
                 <th className="text-left py-1 px-2 text-gray-400 font-medium">Pieces</th>
                 <th className="text-left py-1 px-2 text-gray-400 font-medium">Rank</th>
@@ -97,13 +97,13 @@ export default function ContentHealthDetail({ cid, onClose }: Props) {
               {data.segments.map((seg) => {
                 const ratio = data.k > 0 ? seg.rank / data.k : 0;
                 return (
-                  <tr key={seg.index} className="border-b border-gray-800/50">
+                  <tr key={seg.index} className="border-b border-gray-200/50">
                     <td className="py-1 px-2 font-mono text-xs">{seg.index}</td>
                     <td className="py-1 px-2">{seg.local_pieces}</td>
                     <td className="py-1 px-2">{seg.rank}</td>
                     <td className="py-1 px-2">
                       <div className="flex items-center gap-2">
-                        <div className="flex-1 bg-gray-800 rounded-full h-2">
+                        <div className="flex-1 bg-gray-100 rounded-full h-2">
                           <div className={`h-2 rounded-full ${ratioColor(ratio)}`} style={{ width: `${Math.min(100, ratio * 100)}%` }} />
                         </div>
                         <span className="text-xs text-gray-400 w-10 text-right">{(ratio * 100).toFixed(0)}%</span>
@@ -124,7 +124,7 @@ export default function ContentHealthDetail({ cid, onClose }: Props) {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-800">
+                <tr className="border-b border-gray-200">
                   <th className="text-left py-1 px-2 text-gray-400 font-medium">Peer</th>
                   <th className="text-left py-1 px-2 text-gray-400 font-medium">Region</th>
                   <th className="text-left py-1 px-2 text-gray-400 font-medium">Score</th>
@@ -133,7 +133,7 @@ export default function ContentHealthDetail({ cid, onClose }: Props) {
               </thead>
               <tbody>
                 {data.providers.map((p) => (
-                  <tr key={p.peer_id} className="border-b border-gray-800/50">
+                  <tr key={p.peer_id} className="border-b border-gray-200/50">
                     <td className="py-1 px-2 font-mono text-xs text-gray-400">{truncHash(p.peer_id)}</td>
                     <td className="py-1 px-2">{p.region}</td>
                     <td className="py-1 px-2">{(p.score * 100).toFixed(0)}%</td>

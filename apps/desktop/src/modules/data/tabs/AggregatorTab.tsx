@@ -24,9 +24,9 @@ interface Distribution {
 function ProofStatusBadge({ status }: { status: string }) {
   const styles: Record<string, { icon: typeof CheckCircle; color: string; label: string }> = {
     idle: { icon: Clock, color: "text-gray-400", label: "Idle" },
-    generating: { icon: ShieldCheck, color: "text-yellow-400", label: "Generating…" },
-    submitted: { icon: CheckCircle, color: "text-green-400", label: "Submitted" },
-    failed: { icon: AlertCircle, color: "text-red-400", label: "Failed" },
+    generating: { icon: ShieldCheck, color: "text-amber-500", label: "Generating…" },
+    submitted: { icon: CheckCircle, color: "text-green-600", label: "Submitted" },
+    failed: { icon: AlertCircle, color: "text-red-500", label: "Failed" },
   };
   const s = styles[status] || styles.idle;
   const Icon = s.icon;
@@ -124,7 +124,7 @@ export default function AggregatorTab() {
         <StatCard icon={Layers} label="Epochs Processed" value={String(aggStatus?.epochsProcessed ?? 0)} />
         <StatCard icon={Receipt} label="Receipts (epoch)" value={String(aggStatus?.receiptsThisEpoch ?? 0)} sub={`Epoch #${aggStatus?.currentEpoch ?? 0}`} />
         <StatCard icon={Send} label="Distributions" value={String(aggStatus?.distributionsPosted ?? 0)} />
-        <div className="bg-gray-900 rounded-lg p-4">
+        <div className="bg-white rounded-lg p-4">
           <div className="flex items-center gap-2 mb-1">
             <ShieldCheck size={16} className="text-craftec-500" />
             <span className="text-sm text-gray-400">Proof Status</span>
@@ -134,7 +134,7 @@ export default function AggregatorTab() {
       </div>
 
       {/* Distributions */}
-      <div className="bg-gray-900 rounded-xl p-4">
+      <div className="bg-white rounded-xl p-4">
         <h3 className="font-semibold mb-3">Recent Distributions</h3>
         <DataTable
           columns={[
@@ -144,7 +144,7 @@ export default function AggregatorTab() {
             )},
             { key: "recipients", header: "Recipients" },
             { key: "totalAmount", header: "Amount", render: (item) => (
-              <span className="text-green-400">${Number(item.totalAmount).toFixed(2)}</span>
+              <span className="text-green-600">${Number(item.totalAmount).toFixed(2)}</span>
             )},
             { key: "timestamp", header: "Time", render: (item) => new Date(String(item.timestamp)).toLocaleString() },
           ]}

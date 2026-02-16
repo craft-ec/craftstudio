@@ -123,7 +123,7 @@ export default function AddInstanceModal({ open, onClose }: Props) {
   return (
     <Modal open={open} onClose={handleClose} title="Add Instance">
       {error && (
-        <div className="bg-red-900/30 border border-red-800 rounded-lg px-3 py-2 mb-4 text-sm text-red-300">
+        <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-4 text-sm text-red-600">
           {error}
         </div>
       )}
@@ -133,7 +133,7 @@ export default function AddInstanceModal({ open, onClose }: Props) {
           <button
             onClick={startLocal}
             disabled={starting}
-            className="flex items-center gap-3 w-full px-4 py-3 bg-gray-800 hover:bg-gray-700 disabled:opacity-50 rounded-lg text-left transition-colors"
+            className="flex items-center gap-3 w-full px-4 py-3 bg-gray-100 hover:bg-gray-50 disabled:opacity-50 rounded-lg text-left transition-colors"
           >
             <Play size={16} className="text-craftec-500" />
             <div>
@@ -149,7 +149,7 @@ export default function AddInstanceModal({ open, onClose }: Props) {
                 <button
                   key={config.data_dir}
                   onClick={() => loadExisting(config)}
-                  className="flex items-center gap-3 w-full px-4 py-3 bg-gray-800 hover:bg-gray-700 rounded-lg text-left transition-colors"
+                  className="flex items-center gap-3 w-full px-4 py-3 bg-gray-100 hover:bg-gray-50 rounded-lg text-left transition-colors"
                 >
                   <HardDrive size={16} className="text-gray-400" />
                   <div className="flex-1 min-w-0">
@@ -166,7 +166,7 @@ export default function AddInstanceModal({ open, onClose }: Props) {
 
           <button
             onClick={() => setMode("remote")}
-            className="flex items-center gap-3 w-full px-4 py-3 bg-gray-800 hover:bg-gray-700 rounded-lg text-left transition-colors"
+            className="flex items-center gap-3 w-full px-4 py-3 bg-gray-100 hover:bg-gray-50 rounded-lg text-left transition-colors"
           >
             <Globe size={16} className="text-gray-400" />
             <div>
@@ -180,21 +180,21 @@ export default function AddInstanceModal({ open, onClose }: Props) {
           <div>
             <label className="block text-sm text-gray-400 mb-1">Name (optional)</label>
             <input value={remoteName} onChange={(e) => setRemoteName(e.target.value)} placeholder="My Remote Node"
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-craftec-500" />
+              className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-craftec-500" />
           </div>
           <div>
             <label className="block text-sm text-gray-400 mb-1">Daemon URL</label>
             <input value={remoteUrl} onChange={(e) => setRemoteUrl(e.target.value)} placeholder="ws://127.0.0.1:9091"
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-craftec-500" />
+              className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-craftec-500" />
           </div>
           <div>
             <label className="block text-sm text-gray-400 mb-1">API Key</label>
             <input value={remoteApiKey} onChange={(e) => setRemoteApiKey(e.target.value)} placeholder="From daemon's data_dir/api_key"
-              type="password" className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-craftec-500" />
+              type="password" className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-craftec-500" />
           </div>
           <div className="flex gap-2">
             <button onClick={connectRemote} className="flex-1 px-4 py-2 bg-craftec-600 hover:bg-craftec-500 rounded-lg text-sm font-medium transition-colors">Connect</button>
-            <button onClick={() => setMode("list")} className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm text-gray-400 transition-colors">Back</button>
+            <button onClick={() => setMode("list")} className="px-4 py-2 bg-gray-100 hover:bg-gray-50 rounded-lg text-sm text-gray-400 transition-colors">Back</button>
           </div>
         </div>
       )}

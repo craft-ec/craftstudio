@@ -46,7 +46,7 @@ function SegmentExpander({ cid }: { cid: string }) {
   if (!segments || segments.length === 0) return <div className="px-4 py-2 text-xs text-gray-500">No segment data</div>;
 
   return (
-    <div className="px-4 py-2 bg-gray-950 border-t border-gray-800">
+    <div className="px-4 py-2 bg-gray-50 border-t border-gray-200">
       <table className="w-full text-xs">
         <thead>
           <tr className="text-gray-500">
@@ -60,18 +60,18 @@ function SegmentExpander({ cid }: { cid: string }) {
           {segments.map((seg) => {
             const ratio = seg.k > 0 ? seg.local_pieces / seg.k : 0;
             return (
-              <tr key={seg.index} className="border-t border-gray-800/30">
+              <tr key={seg.index} className="border-t border-gray-200/30">
                 <td className="py-1 px-2 font-mono">{seg.index}</td>
                 <td className="py-1 px-2">{seg.local_pieces}/{seg.k}</td>
                 <td className="py-1 px-2">
-                  <div className="bg-gray-800 rounded-full h-1.5">
+                  <div className="bg-gray-100 rounded-full h-1.5">
                     <div className={`h-1.5 rounded-full ${healthBarColor(ratio)}`} style={{ width: `${Math.min(100, ratio * 100)}%` }} />
                   </div>
                 </td>
                 <td className="py-1 px-2">
                   {seg.reconstructable
-                    ? <span className="text-green-400">✓</span>
-                    : <span className="text-gray-600">✗</span>}
+                    ? <span className="text-green-600">✓</span>
+                    : <span className="text-gray-400">✗</span>}
                 </td>
               </tr>
             );
@@ -132,12 +132,12 @@ export default function StorageTab() {
       <div className="grid grid-cols-4 gap-4 mb-6">
         <StatCard icon={HardDrive} label="Stored" value={formatBytes(storedBytes)} />
         <StatCard icon={HardDrive} label="Content" value={String(items.length)} />
-        <StatCard icon={ShieldCheck} label="PDP Pass Rate" value={receipts.length > 0 ? `${passRate}%` : "—"} color="text-green-400" />
+        <StatCard icon={ShieldCheck} label="PDP Pass Rate" value={receipts.length > 0 ? `${passRate}%` : "—"} color="text-green-600" />
         <StatCard icon={DollarSign} label="Receipts" value={String(totalReceipts)} sub={connected ? undefined : "offline"} />
       </div>
 
       {/* Content list */}
-      <div className="bg-gray-900 rounded-xl p-4 mb-6">
+      <div className="bg-white rounded-xl p-4 mb-6">
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-semibold">Stored Content</h3>
           {stored.length > 0 && (
@@ -148,7 +148,7 @@ export default function StorageTab() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-800">
+                <tr className="border-b border-gray-200">
                   <th className="text-left py-2 px-3 text-gray-400 font-medium w-6"></th>
                   <th className="text-left py-2 px-3 text-gray-400 font-medium">Name</th>
                   <th className="text-left py-2 px-3 text-gray-400 font-medium">CID</th>
@@ -167,7 +167,7 @@ export default function StorageTab() {
                     <tr key={cid} className="group">
                       <td colSpan={8} className="p-0">
                         <div
-                          className="flex items-center border-b border-gray-800/50 hover:bg-gray-800/30 cursor-pointer"
+                          className="flex items-center border-b border-gray-200/50 hover:bg-gray-50/50 cursor-pointer"
                           onClick={() => setExpandedCid(isExpanded ? null : cid)}
                         >
                           <div className="py-2 px-3 w-6">
@@ -183,14 +183,14 @@ export default function StorageTab() {
                           <div className="py-2 px-3">{formatBytes(item.total_size)}</div>
                           <div className="py-2 px-3 w-36">
                             <div className="flex items-center gap-2">
-                              <div className="flex-1 bg-gray-800 rounded-full h-2">
+                              <div className="flex-1 bg-gray-100 rounded-full h-2">
                                 <div className={`h-2 rounded-full ${healthBarColor(item.health_ratio)}`} style={{ width: `${Math.min(100, item.health_ratio * 100)}%` }} />
                               </div>
                               <span className="text-xs text-gray-400 w-8 text-right">{(item.health_ratio * 100).toFixed(0)}%</span>
                             </div>
                           </div>
                           <div className="py-2 px-3">
-                            <span className="px-1.5 py-0.5 rounded text-xs bg-gray-800 text-gray-300">{item.role}</span>
+                            <span className="px-1.5 py-0.5 rounded text-xs bg-gray-100 text-gray-700">{item.role}</span>
                           </div>
                           <div className="py-2 px-3 text-xs text-gray-400">{item.stage}</div>
                           <div className="py-2 px-3">
@@ -216,16 +216,16 @@ export default function StorageTab() {
       </div>
 
       {/* PDP Stats */}
-      <div className="bg-gray-900 rounded-xl p-4 mb-6">
+      <div className="bg-white rounded-xl p-4 mb-6">
         <h3 className="font-semibold mb-3">PDP Statistics</h3>
         <div className="grid grid-cols-2 gap-4">
           <StatCard icon={ShieldCheck} label="Challenges Served" value={String(totalReceipts)} />
-          <StatCard icon={Activity} label="Pass Rate" value={receipts.length > 0 ? `${passRate}%` : "—"} color="text-green-400" />
+          <StatCard icon={Activity} label="Pass Rate" value={receipts.length > 0 ? `${passRate}%` : "—"} color="text-green-600" />
         </div>
       </div>
 
       {!connected && (
-        <div className="bg-gray-900 rounded-xl p-4 text-center text-sm text-gray-500">
+        <div className="bg-white rounded-xl p-4 text-center text-sm text-gray-500">
           Start the daemon to see live storage data
         </div>
       )}

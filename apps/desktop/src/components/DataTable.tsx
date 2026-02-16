@@ -12,16 +12,16 @@ interface Props<T> {
 
 export default function DataTable<T extends Record<string, unknown>>({ columns, data, emptyMessage = "No data" }: Props<T>) {
   if (data.length === 0) {
-    return <div className="text-center text-gray-500 py-8">{emptyMessage}</div>;
+    return <div className="text-center text-gray-400 py-8">{emptyMessage}</div>;
   }
 
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-gray-800">
+          <tr className="border-b border-gray-200">
             {columns.map((col) => (
-              <th key={col.key} className="text-left py-2 px-3 text-gray-400 font-medium">
+              <th key={col.key} className="text-left py-2 px-3 text-gray-500 font-medium text-xs uppercase tracking-wider">
                 {col.header}
               </th>
             ))}
@@ -29,9 +29,9 @@ export default function DataTable<T extends Record<string, unknown>>({ columns, 
         </thead>
         <tbody>
           {data.map((item, i) => (
-            <tr key={i} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+            <tr key={i} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
               {columns.map((col) => (
-                <td key={col.key} className="py-2 px-3">
+                <td key={col.key} className="py-2.5 px-3 text-gray-700">
                   {col.render ? col.render(item) : String(item[col.key] ?? "")}
                 </td>
               ))}

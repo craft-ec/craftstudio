@@ -10,7 +10,7 @@ export default function TunnelDashboard() {
         <Shield className="text-craftec-500" /> TunnelCraft
       </h1>
 
-      <div className="bg-gray-900 rounded-xl p-8 text-center">
+      <div className="bg-white rounded-xl p-8 text-center">
         <div className="text-6xl mb-4">
           {status === "connected" ? "🟢" : status === "connecting" ? "🟡" : "⚫"}
         </div>
@@ -28,11 +28,11 @@ export default function TunnelDashboard() {
       </div>
 
       <div className="grid grid-cols-2 gap-4 mt-6">
-        <div className="bg-gray-900 rounded-lg p-4">
+        <div className="bg-white rounded-lg p-4">
           <p className="text-sm text-gray-400">Exit Node</p>
           <p className="text-lg">Not selected</p>
         </div>
-        <div className="bg-gray-900 rounded-lg p-4">
+        <div className="bg-white rounded-lg p-4">
           <p className="text-sm text-gray-400">Hops</p>
           <p className="text-lg">2</p>
         </div>

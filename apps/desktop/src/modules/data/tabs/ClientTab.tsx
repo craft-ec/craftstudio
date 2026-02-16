@@ -11,8 +11,8 @@ import NetworkHealth from "../../../components/NetworkHealth";
 import { usePeers } from "../../../hooks/usePeers";
 
 function ProviderBadge({ count }: { count: number }) {
-  if (count <= 1) return <span className="text-xs text-yellow-400">Local only</span>;
-  return <span className="text-xs text-green-400">{count} nodes</span>;
+  if (count <= 1) return <span className="text-xs text-amber-500">Local only</span>;
+  return <span className="text-xs text-green-600">{count} nodes</span>;
 }
 
 function healthBarColor(ratio: number): string {
@@ -120,7 +120,7 @@ export default function ClientTab() {
             }
           }}
           disabled={!connected}
-          className="flex items-center gap-2 px-4 py-2 bg-craftec-600 hover:bg-craftec-700 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-lg transition-colors text-sm"
+          className="flex items-center gap-2 px-4 py-2 bg-craftec-600 hover:bg-craftec-700 disabled:bg-gray-200 disabled:text-gray-500 text-white rounded-lg transition-colors text-sm"
         >
           <Upload size={16} /> Publish Content
         </button>
@@ -129,18 +129,18 @@ export default function ClientTab() {
       <NetworkHealth />
 
       {error && (
-        <div className="bg-red-900/20 border border-red-800 rounded-lg px-4 py-2 mb-4 text-sm text-red-300">{error}</div>
+        <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-2 mb-4 text-sm text-red-600">{error}</div>
       )}
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4 mb-6">
         <StatCard icon={Upload} label="Published" value={String(published.length)} />
         <StatCard icon={Download} label="Channels" value={String(channels.length)} />
-        <StatCard icon={DollarSign} label="Total Locked" value={totalLocked > 0 ? String(totalLocked) : "0"} color="text-green-400" />
+        <StatCard icon={DollarSign} label="Total Locked" value={totalLocked > 0 ? String(totalLocked) : "0"} color="text-green-600" />
       </div>
 
       {/* My Published Content */}
-      <div className="bg-gray-900 rounded-xl p-4 mb-6">
+      <div className="bg-white rounded-xl p-4 mb-6">
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-semibold">My Published Content</h3>
           {loading && <span className="text-xs text-gray-500 animate-pulse">Loading...</span>}
@@ -158,7 +158,7 @@ export default function ClientTab() {
               const ratio = Number(item.health_ratio || 0);
               return (
                 <div className="flex items-center gap-2 w-28">
-                  <div className="flex-1 bg-gray-800 rounded-full h-2">
+                  <div className="flex-1 bg-gray-100 rounded-full h-2">
                     <div className={`h-2 rounded-full ${healthBarColor(ratio)}`} style={{ width: `${Math.min(100, ratio * 100)}%` }} />
                   </div>
                   <span className="text-xs text-gray-400 w-8 text-right">{(ratio * 100).toFixed(0)}%</span>
@@ -177,7 +177,7 @@ export default function ClientTab() {
       </div>
 
       {/* Payment Channels */}
-      <div className="bg-gray-900 rounded-xl p-4">
+      <div className="bg-white rounded-xl p-4">
         <h3 className="font-semibold mb-3">Payment Channels</h3>
         <DataTable
           columns={[
@@ -185,7 +185,7 @@ export default function ClientTab() {
             { key: "receiver", header: "Peer", render: (item) => <span className="font-mono text-xs text-gray-400">{shortenCid(String(item.receiver))}</span> },
             { key: "locked_amount", header: "Locked", render: (item) => <span className="text-craftec-400">{String(item.locked_amount)}</span> },
             { key: "spent", header: "Spent", render: (item) => String(item.spent) },
-            { key: "remaining", header: "Remaining", render: (item) => <span className="text-green-400">{String(item.remaining)}</span> },
+            { key: "remaining", header: "Remaining", render: (item) => <span className="text-green-600">{String(item.remaining)}</span> },
           ]}
           data={channels as unknown as Record<string, unknown>[]}
           emptyMessage={connected ? "No payment channels open" : "Start the daemon to see live data"}
@@ -199,21 +199,21 @@ export default function ClientTab() {
             <label className="block text-sm text-gray-400 mb-1">File Path</label>
             <div className="flex gap-2">
               <input type="text" value={filePath} onChange={(e) => setFilePath(e.target.value)} placeholder="/path/to/file.csv"
-                className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-craftec-500" />
+                className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-craftec-500" />
               <button type="button" onClick={async () => { try { const s = await invoke<string | null>("pick_file"); if (s) setFilePath(s); } catch {} }}
-                className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors" title="Browse files">
+                className="px-3 py-2 bg-gray-200 hover:bg-gray-50 text-gray-700 rounded-lg transition-colors" title="Browse files">
                 <FolderOpen size={16} />
               </button>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={() => setEncrypt(!encrypt)} className={`w-10 h-6 rounded-full relative transition-colors ${encrypt ? "bg-craftec-600" : "bg-gray-700"}`}>
+            <button onClick={() => setEncrypt(!encrypt)} className={`w-10 h-6 rounded-full relative transition-colors ${encrypt ? "bg-craftec-600" : "bg-gray-200"}`}>
               <div className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-all ${encrypt ? "left-5" : "left-1"}`} />
             </button>
             <span className="text-sm">Encrypt content</span>
           </div>
           <button onClick={handlePublish} disabled={!filePath.trim() || publishing}
-            className="w-full py-2 bg-craftec-600 hover:bg-craftec-700 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-lg transition-colors">
+            className="w-full py-2 bg-craftec-600 hover:bg-craftec-700 disabled:bg-gray-200 disabled:text-gray-500 text-white rounded-lg transition-colors">
             {publishing ? (
               <span className="flex items-center justify-center gap-2">
                 <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
@@ -227,9 +227,9 @@ export default function ClientTab() {
       {/* No Storage Peers Confirmation */}
       <Modal open={showNoStorageConfirm} onClose={() => setShowNoStorageConfirm(false)} title="No Storage Peers">
         <div className="space-y-4">
-          <p className="text-sm text-gray-300">No storage peers connected. Content will only exist locally. Continue?</p>
+          <p className="text-sm text-gray-700">No storage peers connected. Content will only exist locally. Continue?</p>
           <div className="flex gap-3 justify-end">
-            <button onClick={() => setShowNoStorageConfirm(false)} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors text-sm">Cancel</button>
+            <button onClick={() => setShowNoStorageConfirm(false)} className="px-4 py-2 bg-gray-200 hover:bg-gray-50 text-white rounded-lg transition-colors text-sm">Cancel</button>
             <button onClick={() => { setShowNoStorageConfirm(false); setShowPublish(true); }} className="px-4 py-2 bg-craftec-600 hover:bg-craftec-700 text-white rounded-lg transition-colors text-sm">Publish Locally</button>
           </div>
         </div>
@@ -241,21 +241,21 @@ export default function ClientTab() {
           <p className="text-xs text-gray-400 font-mono">{showAccess ? shortenCid(showAccess) : ""}</p>
           <div className="flex gap-2">
             <input type="text" value={accessDid} onChange={(e) => setAccessDid(e.target.value)} placeholder="recipient pubkey (hex)"
-              className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-craftec-500" />
+              className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-craftec-500" />
             <button onClick={handleGrant} disabled={!accessDid.trim() || !connected}
-              className="px-3 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-700 text-white rounded-lg transition-colors">
+              className="px-3 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-200 text-white rounded-lg transition-colors">
               <UserPlus size={16} />
             </button>
           </div>
           <div className="space-y-2">
             {accessEntries.length === 0 && <p className="text-sm text-gray-500">No access granted</p>}
             {accessEntries.map((entry) => (
-              <div key={entry.did} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2">
+              <div key={entry.did} className="flex items-center justify-between bg-gray-100 rounded-lg px-3 py-2">
                 <div>
                   <p className="text-sm font-mono">{entry.did.length > 20 ? `${entry.did.slice(0, 10)}...${entry.did.slice(-10)}` : entry.did}</p>
                   {entry.grantedAt && <p className="text-xs text-gray-500">{new Date(entry.grantedAt).toLocaleDateString()}</p>}
                 </div>
-                <button onClick={() => showAccess && revokeAccess(showAccess, entry.did)} disabled={!connected} className="text-red-400 hover:text-red-300 disabled:text-gray-600">
+                <button onClick={() => showAccess && revokeAccess(showAccess, entry.did)} disabled={!connected} className="text-red-500 hover:text-red-600 disabled:text-gray-400">
                   <UserMinus size={16} />
                 </button>
               </div>

@@ -34,23 +34,23 @@ export default function NetworkHealth() {
   return (
     <div className="mb-6">
       {/* Health ratio bar */}
-      <div className="bg-gray-900 rounded-xl p-4 mb-4">
+      <div className="bg-white rounded-xl p-4 mb-4">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-medium flex items-center gap-2">
             <Activity size={16} className="text-craftec-500" /> Network Health
           </span>
           <span className="text-sm font-semibold">{(ratio * 100).toFixed(1)}%</span>
         </div>
-        <div className="w-full bg-gray-800 rounded-full h-3">
+        <div className="w-full bg-gray-100 rounded-full h-3">
           <div
             className={`h-3 rounded-full transition-all ${healthColor(ratio)}`}
             style={{ width: `${Math.min(100, ratio * 100)}%` }}
           />
         </div>
         <div className="flex items-center gap-4 mt-2 text-xs text-gray-400">
-          <span className="text-green-400">{data.healthy_content_count} healthy</span>
+          <span className="text-green-600">{data.healthy_content_count} healthy</span>
           {data.degraded_content_count > 0 && (
-            <span className="text-red-400">{data.degraded_content_count} degraded</span>
+            <span className="text-red-500">{data.degraded_content_count} degraded</span>
           )}
         </div>
       </div>
@@ -60,7 +60,7 @@ export default function NetworkHealth() {
         <StatCard icon={Shield} label="Content" value={String(data.total_content_count)} sub={`${data.healthy_content_count} healthy`} />
         <StatCard icon={Users} label="Storage Nodes" value={String(data.storage_node_count)} sub={`${data.total_providers_unique} providers`} />
         <StatCard icon={HardDrive} label="Network Storage" value={formatBytes(data.total_network_storage_used)} sub={`of ${formatBytes(data.total_network_storage_committed)}`} />
-        <StatCard icon={Receipt} label="Receipts (epoch)" value={String(data.receipts_this_epoch)} color="text-green-400" />
+        <StatCard icon={Receipt} label="Receipts (epoch)" value={String(data.receipts_this_epoch)} color="text-green-600" />
       </div>
     </div>
   );

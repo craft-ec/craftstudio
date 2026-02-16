@@ -107,20 +107,20 @@ export default function NetworkPage() {
 
       {/* Node Stats */}
       {nodeStats && (
-        <div className="bg-gray-900 rounded-xl p-4 mb-6">
+        <div className="bg-white rounded-xl p-4 mb-6">
           <h2 className="text-lg font-semibold mb-3">This Node</h2>
           <div className="grid grid-cols-4 gap-4 mb-4">
             <StatCard icon={Database} label="Content" value={String(nodeStats.content_count)} sub={`${nodeStats.published_count} published · ${nodeStats.stored_count} stored`} />
             <StatCard icon={HardDrive} label="Local Pieces" value={String(nodeStats.total_local_pieces)} />
             <StatCard icon={HardDrive} label="Disk Usage" value={formatBytes(nodeStats.total_disk_usage)} />
-            <StatCard icon={Receipt} label="Receipts" value={String(nodeStats.receipts_generated)} color="text-green-400" />
+            <StatCard icon={Receipt} label="Receipts" value={String(nodeStats.receipts_generated)} color="text-green-600" />
           </div>
           <div className="flex items-center gap-4 text-sm text-gray-400">
             <span className="flex items-center gap-1"><Clock size={14} /> {formatUptime(nodeStats.uptime_secs)}</span>
             {nodeStats.region && <span className="flex items-center gap-1"><MapPin size={14} /> {nodeStats.region}</span>}
             <span className="font-mono text-xs" title={nodeStats.storage_root}>Root: {truncHash(nodeStats.storage_root)}</span>
             {nodeStats.capabilities.map((cap) => (
-              <span key={cap} className="px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 text-xs">{cap}</span>
+              <span key={cap} className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 text-xs">{cap}</span>
             ))}
           </div>
         </div>
@@ -128,24 +128,24 @@ export default function NetworkPage() {
 
       {/* Status */}
       <div className="grid grid-cols-4 gap-4 mb-6">
-        <StatCard icon={Activity} label="Status" value={connected ? "Online" : "Offline"} color={connected ? "text-green-400" : "text-red-400"} />
+        <StatCard icon={Activity} label="Status" value={connected ? "Online" : "Offline"} color={connected ? "text-green-600" : "text-red-500"} />
         <StatCard icon={Users} label="Peers" value={String(peerCount)} sub={`${storagePeers} storage`} />
         <StatCard icon={Clock} label="Uptime" value={nodeStats ? formatUptime(nodeStats.uptime_secs) : "—"} />
         <StatCard icon={Zap} label="Capabilities" value={`${capabilities.filter((c) => c.enabled).length}/3`} />
       </div>
 
       {/* Channel Summary */}
-      <div className="bg-gray-900 rounded-xl p-4 mb-6">
+      <div className="bg-white rounded-xl p-4 mb-6">
         <h2 className="text-lg font-semibold mb-3">Payment Channels</h2>
         <div className="grid grid-cols-3 gap-4">
           <StatCard icon={DollarSign} label="Active Channels" value={String(channels.count)} />
           <StatCard icon={DollarSign} label="Total Locked" value={String(channels.totalLocked)} color="text-craftec-500" />
-          <StatCard icon={DollarSign} label="Remaining" value={String(channels.totalLocked - channels.totalSpent)} color="text-green-400" />
+          <StatCard icon={DollarSign} label="Remaining" value={String(channels.totalLocked - channels.totalSpent)} color="text-green-600" />
         </div>
       </div>
 
       {/* Peer Breakdown */}
-      <div className="bg-gray-900 rounded-xl p-4 mb-6">
+      <div className="bg-white rounded-xl p-4 mb-6">
         <h2 className="text-lg font-semibold mb-3">Peer Breakdown</h2>
         <div className="grid grid-cols-4 gap-4">
           <StatCard icon={Users} label="Total" value={String(peerStats.total)} />
@@ -156,18 +156,18 @@ export default function NetworkPage() {
       </div>
 
       {/* Network Storage */}
-      <div className="bg-gray-900 rounded-xl p-4 mb-6">
+      <div className="bg-white rounded-xl p-4 mb-6">
         <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
           <HardDrive className="w-5 h-5 text-craftec-500" /> Network Storage
         </h2>
         <div className="grid grid-cols-4 gap-4 mb-4">
           <StatCard icon={HardDrive} label="Committed" value={formatBytes(networkStorage.total_committed)} color="text-craftec-500" />
-          <StatCard icon={HardDrive} label="Used" value={formatBytes(networkStorage.total_used)} color="text-yellow-400" />
-          <StatCard icon={HardDrive} label="Available" value={formatBytes(networkStorage.total_available)} color="text-green-400" />
+          <StatCard icon={HardDrive} label="Used" value={formatBytes(networkStorage.total_used)} color="text-amber-500" />
+          <StatCard icon={HardDrive} label="Available" value={formatBytes(networkStorage.total_available)} color="text-green-600" />
           <StatCard icon={Users} label="Storage Nodes" value={String(networkStorage.storage_node_count)} />
         </div>
         {networkStorage.total_committed > 0 && (
-          <div className="w-full bg-gray-800 rounded-full h-3">
+          <div className="w-full bg-gray-100 rounded-full h-3">
             <div
               className="bg-craftec-500 h-3 rounded-full transition-all"
               style={{ width: `${Math.min(100, (networkStorage.total_used / networkStorage.total_committed) * 100)}%` }}
@@ -177,7 +177,7 @@ export default function NetworkPage() {
       </div>
 
       {/* Capability Toggles */}
-      <div className="bg-gray-900 rounded-xl p-4">
+      <div className="bg-white rounded-xl p-4">
         <h2 className="text-lg font-semibold mb-3">Network Capabilities</h2>
         <p className="text-sm text-gray-500 mb-4">Enable capabilities to see their tabs on the DataCraft page.</p>
         <div className="space-y-3">
@@ -186,7 +186,7 @@ export default function NetworkPage() {
               <span>{label}</span>
               <button
                 onClick={() => toggle(key)}
-                className={`w-10 h-6 rounded-full relative transition-colors ${enabled ? "bg-craftec-600" : "bg-gray-700"}`}
+                className={`w-10 h-6 rounded-full relative transition-colors ${enabled ? "bg-craftec-600" : "bg-gray-200"}`}
               >
                 <div className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-all ${enabled ? "left-5" : "left-1"}`} />
               </button>

@@ -62,24 +62,24 @@ export default function TimeChart({
 
   const axes = (
     <>
-      <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
       <XAxis
         dataKey={xKey}
-        tick={{ fill: "#9ca3af", fontSize: 11 }}
+        tick={{ fill: "#6b7280", fontSize: 11 }}
         tickFormatter={formatX}
-        axisLine={{ stroke: "#374151" }}
+        axisLine={{ stroke: "#e5e7eb" }}
         tickLine={false}
       />
       <YAxis
-        tick={{ fill: "#9ca3af", fontSize: 11 }}
+        tick={{ fill: "#6b7280", fontSize: 11 }}
         tickFormatter={(v: number) => formatValue(v)}
         axisLine={false}
         tickLine={false}
         width={52}
       />
       <Tooltip
-        contentStyle={{ background: "#1f2937", border: "1px solid #374151", borderRadius: 8 }}
-        labelStyle={{ color: "#9ca3af" }}
+        contentStyle={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}
+        labelStyle={{ color: "#6b7280" }}
         formatter={tooltipFormatter}
       />
     </>
@@ -132,8 +132,8 @@ export default function TimeChart({
   };
 
   return (
-    <div className="bg-gray-900 rounded-xl p-4">
-      {title && <h2 className="text-sm font-semibold text-gray-300 mb-3">{title}</h2>}
+    <div className="bg-white rounded-xl p-4">
+      {title && <h2 className="text-sm font-semibold text-gray-700 mb-3">{title}</h2>}
       <ResponsiveContainer width="100%" height={height}>
         {renderChart()}
       </ResponsiveContainer>

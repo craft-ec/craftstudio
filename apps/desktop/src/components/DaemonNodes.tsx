@@ -132,17 +132,17 @@ export default function DaemonNodes() {
   };
 
   return (
-    <div className="bg-gray-900 rounded-xl p-4 mb-6">
+    <div className="bg-white rounded-xl p-4 mb-6">
       <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
         <Server className="w-5 h-5 text-craftec-500" /> Daemon Nodes
       </h2>
 
       {error && (
-        <div className="bg-red-900/50 border border-red-700 rounded-lg p-3 mb-3 text-sm text-red-300">
+        <div className="bg-red-50 border border-red-700 rounded-lg p-3 mb-3 text-sm text-red-600">
           {error}
           <button
             onClick={() => setError(null)}
-            className="ml-2 text-red-400 hover:text-red-200"
+            className="ml-2 text-red-500 hover:text-red-500"
           >
             ✕
           </button>
@@ -164,7 +164,7 @@ export default function DaemonNodes() {
         <button
           onClick={() => startDaemon(defaultConfig)}
           disabled={starting}
-          className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-gray-200 hover:bg-gray-50 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
         >
           <Plus className="w-4 h-4" />
           Add Node
@@ -179,10 +179,10 @@ export default function DaemonNodes() {
       ) : (
         <div className="space-y-2">
           {daemons.map((d) => (
-            <div key={d.pid} className="bg-gray-800 rounded-lg overflow-hidden">
+            <div key={d.pid} className="bg-gray-100 rounded-lg overflow-hidden">
               <div className="flex items-center justify-between p-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                   <div>
                     <div className="text-sm font-medium">
                       {d.primary ? "Primary Node" : "Test Node"}{" "}
@@ -208,7 +208,7 @@ export default function DaemonNodes() {
                   </button>
                   <button
                     onClick={() => stopDaemon(d.pid)}
-                    className="flex items-center gap-1 px-3 py-1.5 bg-red-900/50 hover:bg-red-800 text-red-300 rounded text-sm transition-colors"
+                    className="flex items-center gap-1 px-3 py-1.5 bg-red-50 hover:bg-red-50 text-red-600 rounded text-sm transition-colors"
                   >
                     <Square className="w-3 h-3" /> Stop
                   </button>
@@ -217,14 +217,14 @@ export default function DaemonNodes() {
 
               {/* Log panel */}
               {expandedLogs.has(d.pid) && (
-                <div className="border-t border-gray-700 bg-black/50 p-2 max-h-48 overflow-y-auto font-mono text-xs">
+                <div className="border-t border-gray-200 bg-gray-100 p-2 max-h-48 overflow-y-auto font-mono text-xs">
                   {(logs[d.pid] || []).length === 0 ? (
-                    <span className="text-gray-600">Waiting for output...</span>
+                    <span className="text-gray-400">Waiting for output...</span>
                   ) : (
                     (logs[d.pid] || []).map((l, i) => (
                       <div
                         key={i}
-                        className={l.is_stderr ? "text-yellow-400" : "text-gray-300"}
+                        className={l.is_stderr ? "text-amber-500" : "text-gray-700"}
                       >
                         {l.line}
                       </div>
