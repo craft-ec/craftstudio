@@ -44,13 +44,15 @@ function healthBarColor(ratio: number): string {
   return "bg-red-500";
 }
 
-function roleBadge(role: string): { label: string; cls: string } {
+// roleBadge kept for potential future use
+function _roleBadge(role: string): { label: string; cls: string } {
   switch (role) {
     case "publisher": return { label: "Publisher", cls: "bg-blue-100 text-blue-700" };
     case "storage_provider": return { label: "Storage", cls: "bg-purple-100 text-purple-700" };
     default: return { label: "Both", cls: "bg-gray-100 text-gray-700" };
   }
 }
+void _roleBadge;
 
 // ── Segment Expander (from StorageTab) ──────────────────
 
@@ -271,106 +273,203 @@ export default function DataDashboard() {
       {/* ── Content Health Detail (overlay) ──────────────── */}
       {detailCid && <ContentHealthDetail cid={detailCid} onClose={() => setDetailCid(null)} />}
 
-      {/* ── My Content Table ─────────────────────────────── */}
-      <div className="bg-white rounded-xl p-4 mb-6 shadow-sm border border-gray-200">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-lg">My Content</h3>
-          {loading && <span className="text-xs text-gray-500 animate-pulse">Loading…</span>}
-        </div>
+      {/* ── Local Content (publisher) ────────────────────── */}
+      {(() => {
+        const localContent = content.filter((c) => c.role === "publisher" || c.role === "unknown");
+        return (
+          <div className="bg-white rounded-xl p-4 mb-6 shadow-sm border border-gray-200">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="font-semibold text-lg">Local Content</h3>
+              {loading && <span className="text-xs text-gray-500 animate-pulse">Loading…</span>}
+            </div>
+            <p className="text-xs text-gray-400 mb-3">Local files — safe to delete without affecting network availability</p>
 
-        {content.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-2 px-3 text-gray-400 font-medium text-xs uppercase tracking-wider w-6"></th>
-                  <th className="text-left py-2 px-3 text-gray-400 font-medium text-xs uppercase tracking-wider">Name</th>
-                  <th className="text-left py-2 px-3 text-gray-400 font-medium text-xs uppercase tracking-wider">Size</th>
-                  <th className="text-left py-2 px-3 text-gray-400 font-medium text-xs uppercase tracking-wider">Health</th>
-                  <th className="text-left py-2 px-3 text-gray-400 font-medium text-xs uppercase tracking-wider">Role</th>
-                  <th className="text-left py-2 px-3 text-gray-400 font-medium text-xs uppercase tracking-wider">Segments</th>
-                  <th className="text-left py-2 px-3 text-gray-400 font-medium text-xs uppercase tracking-wider">Providers</th>
-                  <th className="text-left py-2 px-3 text-gray-400 font-medium text-xs uppercase tracking-wider w-8"></th>
-                  <th className="text-left py-2 px-3 text-gray-400 font-medium text-xs uppercase tracking-wider w-8"></th>
-                  <th className="text-left py-2 px-3 text-gray-400 font-medium text-xs uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {content.map((item: ContentItem) => {
-                  const cid = item.content_id;
-                  const isExpanded = expandedCid === cid;
-                  const badge = roleBadge(item.role);
-                  return (
-                    <React.Fragment key={cid}>
-                      <tr
-                        className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors"
-                        onClick={() => toggleExpandCid(cid)}
-                      >
-                        <td className="py-2.5 px-3 w-6">
-                          {isExpanded ? <ChevronDown size={14} className="text-gray-400" /> : <ChevronRight size={14} className="text-gray-400" />}
-                        </td>
-                        <td className="py-2.5 px-3">
-                          <span className="font-medium text-gray-900 truncate">{item.name || shortenCid(cid)}</span>
-                          {item.hot && <span className="ml-1" title="Hot content">🔥</span>}
-                        </td>
-                        <td className="py-2.5 px-3 text-gray-600">{formatBytes(item.total_size)}</td>
-                        <td className="py-2.5 px-3">
-                          <div className="flex items-center gap-1.5">
-                            <span className={`w-2 h-2 rounded-full ${healthDot(item.health_ratio)}`} />
-                            <span className="text-xs text-gray-600">{(item.health_ratio * 100).toFixed(0)}%</span>
-                          </div>
-                        </td>
-                        <td className="py-2.5 px-3">
-                          <span className={`px-1.5 py-0.5 rounded text-xs ${badge.cls}`}>{badge.label}</span>
-                        </td>
-                        <td className="py-2.5 px-3 text-gray-600">{item.segment_count}</td>
-                        <td className="py-2.5 px-3">
-                          {item.provider_count <= 1
-                            ? <span className="text-xs text-amber-500">Local only</span>
-                            : <span className="text-xs text-green-600">{item.provider_count} nodes</span>
-                          }
-                        </td>
-                        <td className="py-2.5 px-3 w-8">
-                          {item.pinned && <span title="Pinned"><Pin size={14} className="text-craftec-400" /></span>}
-                        </td>
-                        <td className="py-2.5 px-3 w-8">
-                          {item.encrypted ? <span title="Encrypted"><Lock size={14} className="text-craftec-400" /></span> : <span title="Unencrypted"><Unlock size={14} className="text-gray-300" /></span>}
-                        </td>
-                        <td className="py-2.5 px-3">
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setDetailCid(cid); }}
-                              className="text-xs text-craftec-500 hover:text-craftec-600 font-medium"
-                            >
-                              Details
-                            </button>
-                            {(item.role === "publisher" || item.role === "unknown") && (
+            {localContent.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left py-2 px-3 text-gray-400 font-medium text-xs uppercase tracking-wider w-6"></th>
+                      <th className="text-left py-2 px-3 text-gray-400 font-medium text-xs uppercase tracking-wider">Name</th>
+                      <th className="text-left py-2 px-3 text-gray-400 font-medium text-xs uppercase tracking-wider">Size</th>
+                      <th className="text-left py-2 px-3 text-gray-400 font-medium text-xs uppercase tracking-wider">Health</th>
+                      <th className="text-left py-2 px-3 text-gray-400 font-medium text-xs uppercase tracking-wider">Segments</th>
+                      <th className="text-left py-2 px-3 text-gray-400 font-medium text-xs uppercase tracking-wider">Providers</th>
+                      <th className="text-left py-2 px-3 text-gray-400 font-medium text-xs uppercase tracking-wider w-8"></th>
+                      <th className="text-left py-2 px-3 text-gray-400 font-medium text-xs uppercase tracking-wider w-8"></th>
+                      <th className="text-left py-2 px-3 text-gray-400 font-medium text-xs uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {localContent.map((item: ContentItem) => {
+                      const cid = item.content_id;
+                      const isExpanded = expandedCid === cid;
+                      return (
+                        <React.Fragment key={cid}>
+                          <tr
+                            className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors"
+                            onClick={() => toggleExpandCid(cid)}
+                          >
+                            <td className="py-2.5 px-3 w-6">
+                              {isExpanded ? <ChevronDown size={14} className="text-gray-400" /> : <ChevronRight size={14} className="text-gray-400" />}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <span className="font-medium text-gray-900 truncate">{item.name || shortenCid(cid)}</span>
+                              {item.hot && <span className="ml-1" title="Hot content">🔥</span>}
+                            </td>
+                            <td className="py-2.5 px-3 text-gray-600">{formatBytes(item.total_size)}</td>
+                            <td className="py-2.5 px-3">
+                              <div className="flex items-center gap-1.5">
+                                <span className={`w-2 h-2 rounded-full ${healthDot(item.health_ratio)}`} />
+                                <span className="text-xs text-gray-600">{(item.health_ratio * 100).toFixed(0)}%</span>
+                              </div>
+                            </td>
+                            <td className="py-2.5 px-3 text-gray-600">{item.segment_count}</td>
+                            <td className="py-2.5 px-3">
+                              {item.provider_count <= 1
+                                ? <span className="text-xs text-amber-500">Local only</span>
+                                : <span className="text-xs text-green-600">{item.provider_count} nodes</span>
+                              }
+                            </td>
+                            <td className="py-2.5 px-3 w-8">
+                              {item.pinned && <span title="Pinned"><Pin size={14} className="text-craftec-400" /></span>}
+                            </td>
+                            <td className="py-2.5 px-3 w-8">
+                              {item.encrypted ? <span title="Encrypted"><Lock size={14} className="text-craftec-400" /></span> : <span title="Unencrypted"><Unlock size={14} className="text-gray-300" /></span>}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setDetailCid(cid); }}
+                                  className="text-xs text-craftec-500 hover:text-craftec-600 font-medium"
+                                >
+                                  Details
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setShowAccess(cid); }}
+                                  className="text-xs text-gray-500 hover:text-gray-700"
+                                >
+                                  Access
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); /* TODO: delete local content */ }}
+                                  className="text-xs text-red-400 hover:text-red-600"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                          {isExpanded && (
+                            <tr><td colSpan={9} className="p-0"><SegmentExpander cid={cid} /></td></tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+                <Inbox size={32} className="mb-2 opacity-50" />
+                <p className="text-sm">{connected ? "No local content yet — publish something!" : "Start the daemon to see content"}</p>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ── Distributed Content (storage_provider) ────────── */}
+      {(() => {
+        const distributedContent = content.filter((c) => c.role === "storage_provider");
+        return (
+          <div className="bg-white rounded-xl p-4 mb-6 shadow-sm border border-gray-200">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="font-semibold text-lg">Distributed Content</h3>
+              {loading && <span className="text-xs text-gray-500 animate-pulse">Loading…</span>}
+            </div>
+            <p className="text-xs text-gray-400 mb-3">Content this node stores for the network — deleting affects network health</p>
+
+            {distributedContent.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left py-2 px-3 text-gray-400 font-medium text-xs uppercase tracking-wider w-6"></th>
+                      <th className="text-left py-2 px-3 text-gray-400 font-medium text-xs uppercase tracking-wider">Name</th>
+                      <th className="text-left py-2 px-3 text-gray-400 font-medium text-xs uppercase tracking-wider">Size</th>
+                      <th className="text-left py-2 px-3 text-gray-400 font-medium text-xs uppercase tracking-wider">Health</th>
+                      <th className="text-left py-2 px-3 text-gray-400 font-medium text-xs uppercase tracking-wider">Segments</th>
+                      <th className="text-left py-2 px-3 text-gray-400 font-medium text-xs uppercase tracking-wider">Providers</th>
+                      <th className="text-left py-2 px-3 text-gray-400 font-medium text-xs uppercase tracking-wider w-8"></th>
+                      <th className="text-left py-2 px-3 text-gray-400 font-medium text-xs uppercase tracking-wider w-8"></th>
+                      <th className="text-left py-2 px-3 text-gray-400 font-medium text-xs uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {distributedContent.map((item: ContentItem) => {
+                      const cid = item.content_id;
+                      const isExpanded = expandedCid === cid;
+                      return (
+                        <React.Fragment key={cid}>
+                          <tr
+                            className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors"
+                            onClick={() => toggleExpandCid(cid)}
+                          >
+                            <td className="py-2.5 px-3 w-6">
+                              {isExpanded ? <ChevronDown size={14} className="text-gray-400" /> : <ChevronRight size={14} className="text-gray-400" />}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <span className="font-medium text-gray-900 truncate">{item.name || shortenCid(cid)}</span>
+                              {item.hot && <span className="ml-1" title="Hot content">🔥</span>}
+                            </td>
+                            <td className="py-2.5 px-3 text-gray-600">{formatBytes(item.total_size)}</td>
+                            <td className="py-2.5 px-3">
+                              <div className="flex items-center gap-1.5">
+                                <span className={`w-2 h-2 rounded-full ${healthDot(item.health_ratio)}`} />
+                                <span className="text-xs text-gray-600">{(item.health_ratio * 100).toFixed(0)}%</span>
+                              </div>
+                            </td>
+                            <td className="py-2.5 px-3 text-gray-600">{item.segment_count}</td>
+                            <td className="py-2.5 px-3">
+                              {item.provider_count <= 1
+                                ? <span className="text-xs text-amber-500">Local only</span>
+                                : <span className="text-xs text-green-600">{item.provider_count} nodes</span>
+                              }
+                            </td>
+                            <td className="py-2.5 px-3 w-8">
+                              {item.pinned && <span title="Pinned"><Pin size={14} className="text-craftec-400" /></span>}
+                            </td>
+                            <td className="py-2.5 px-3 w-8">
+                              {item.encrypted ? <span title="Encrypted"><Lock size={14} className="text-craftec-400" /></span> : <span title="Unencrypted"><Unlock size={14} className="text-gray-300" /></span>}
+                            </td>
+                            <td className="py-2.5 px-3">
                               <button
-                                onClick={(e) => { e.stopPropagation(); setShowAccess(cid); }}
-                                className="text-xs text-gray-500 hover:text-gray-700"
+                                onClick={(e) => { e.stopPropagation(); setDetailCid(cid); }}
+                                className="text-xs text-craftec-500 hover:text-craftec-600 font-medium"
                               >
-                                Access
+                                Details
                               </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                      {isExpanded && (
-                        <tr><td colSpan={10} className="p-0"><SegmentExpander cid={cid} /></td></tr>
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
+                            </td>
+                          </tr>
+                          {isExpanded && (
+                            <tr><td colSpan={9} className="p-0"><SegmentExpander cid={cid} /></td></tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-8 text-gray-500">
+                <HardDrive size={28} className="mb-2 opacity-50" />
+                <p className="text-sm">{connected ? "Not storing any distributed content" : "Start the daemon to see content"}</p>
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-12 text-gray-500">
-            <Inbox size={32} className="mb-2 opacity-50" />
-            <p className="text-sm">{connected ? "No content yet — publish something!" : "Start the daemon to see content"}</p>
-          </div>
-        )}
-      </div>
+        );
+      })()}
 
       {/* ── PDP & Receipts (collapsible, storage only) ──── */}
       {hasStorage && (
