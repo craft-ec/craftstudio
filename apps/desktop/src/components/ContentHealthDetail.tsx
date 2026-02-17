@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Pin, HardDrive } from "lucide-react";
+import { X, Pin, HardDrive, Globe, Monitor } from "lucide-react";
 import { useDaemon } from "../hooks/useDaemon";
 import type { ContentHealthResponse } from "../services/daemon";
 
@@ -60,61 +60,93 @@ export default function ContentHealthDetail({ cid, onClose }: Props) {
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="font-semibold text-lg">{data.name}</h3>
+          <h3 className="font-semibold text-lg">{data.name || truncHash(data.content_id)}</h3>
           <div className="flex items-center gap-2 text-xs text-gray-400 mt-1">
             <span className="font-mono">{truncHash(data.content_id)}</span>
             <span>·</span>
             <span>{formatBytes(data.original_size)}</span>
-            <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-700">{data.role}</span>
-            <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-700">{data.stage}</span>
+            <span>·</span>
+            <span>{data.segment_count} segments</span>
             {data.pinned && <Pin size={12} className="text-craftec-400" />}
           </div>
         </div>
         <button onClick={onClose} className="text-gray-500 hover:text-gray-700"><X size={16} /></button>
       </div>
 
-      {/* Health summary */}
-      <div className="flex items-center gap-6 mb-4 text-sm">
-        <div>
-          <span className="text-gray-500">Health:</span>
-          <span className={`ml-1 font-semibold ${data.health_ratio >= 0.8 ? 'text-green-600' : data.health_ratio >= 0.5 ? 'text-amber-500' : 'text-red-500'}`}>
-            {(data.health_ratio * 100).toFixed(1)}%
-          </span>
+      {/* ── This Node ──────────────────────────────────── */}
+      <div className="mb-4">
+        <h4 className="text-sm font-medium text-gray-700 flex items-center gap-1.5 mb-2">
+          <Monitor size={14} className="text-gray-400" /> This Node
+        </h4>
+        <div className="flex items-center gap-6 text-sm p-3 bg-gray-50 rounded-lg">
+          <div>
+            <span className="text-gray-500">Role:</span>
+            <span className={`ml-1 px-1.5 py-0.5 rounded text-xs font-medium ${
+              data.role === 'publisher' ? 'bg-craftec-100 text-craftec-700' : 'bg-blue-100 text-blue-700'
+            }`}>{data.role === 'publisher' ? 'Publisher' : 'Storage Provider'}</span>
+          </div>
+          <div>
+            <span className="text-gray-500">Stage:</span>
+            <span className="ml-1 text-gray-700">{data.stage}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <HardDrive size={14} className="text-gray-400" />
+            <span className="text-gray-600">{formatBytes(data.local_disk_usage)}</span>
+          </div>
         </div>
-        <div>
-          <span className="text-gray-500">Min rank:</span>
-          <span className={`ml-1 font-semibold ${data.min_rank >= data.k * 0.8 ? 'text-green-600' : data.min_rank >= data.k * 0.5 ? 'text-amber-500' : 'text-red-500'}`}>
-            {data.min_rank}
-          </span>
-          <span className="text-gray-400">/{data.k}</span>
-        </div>
-        <div>
-          <span className="text-gray-500">Providers:</span>
-          <span className={`ml-1 font-semibold ${data.provider_count >= 5 ? 'text-green-600' : data.provider_count >= 3 ? 'text-amber-500' : 'text-red-500'}`}>
-            {data.provider_count}
-          </span>
-        </div>
-        <div className="flex items-center gap-1">
-          <HardDrive size={14} className="text-gray-400" />
-          <span className="text-gray-600">{formatBytes(data.local_disk_usage)}</span>
+
+        {/* Per-segment local pieces */}
+        <div className="mt-2 overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-200">
+                <th className="text-left py-1 px-2 text-gray-400 font-medium text-xs uppercase">Segment</th>
+                <th className="text-left py-1 px-2 text-gray-400 font-medium text-xs uppercase">Pieces Stored</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.segments.map((seg) => (
+                <tr key={seg.index} className="border-b border-gray-200/50">
+                  <td className="py-1.5 px-2"><span className="font-mono text-sm">{seg.index}</span></td>
+                  <td className="py-1.5 px-2"><span className="text-gray-600">{seg.local_pieces}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
 
-      {/* Segment health table */}
+      {/* ── Network Health ─────────────────────────────── */}
       <div className="mb-4">
-        <div className="flex items-center justify-between mb-2">
-          <h4 className="text-sm font-medium text-gray-700">Per-Segment Health ({data.segments.length} segments)</h4>
-          <div className="text-xs text-gray-500">
-            k={data.k} required for reconstruction
+        <h4 className="text-sm font-medium text-gray-700 flex items-center gap-1.5 mb-2">
+          <Globe size={14} className="text-blue-400" /> Network
+        </h4>
+        <div className="flex items-center gap-6 text-sm p-3 bg-blue-50 rounded-lg mb-2">
+          <div>
+            <span className="text-gray-500">Health:</span>
+            <span className={`ml-1 font-semibold ${data.health_ratio >= 0.8 ? 'text-green-600' : data.health_ratio >= 0.5 ? 'text-amber-500' : 'text-red-500'}`}>
+              {(data.health_ratio * 100).toFixed(1)}%
+            </span>
+          </div>
+          <div>
+            <span className="text-gray-500">Providers:</span>
+            <span className={`ml-1 font-semibold ${data.provider_count >= 5 ? 'text-green-600' : data.provider_count >= 3 ? 'text-amber-500' : 'text-red-500'}`}>
+              {data.provider_count}
+            </span>
+          </div>
+          <div>
+            <span className="text-gray-500">Total pieces:</span>
+            <span className="ml-1 font-semibold text-gray-700">{(data as any).network_total_pieces ?? '—'}</span>
           </div>
         </div>
+
+        {/* Per-segment network health */}
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200">
                 <th className="text-left py-1 px-2 text-gray-400 font-medium text-xs uppercase">Segment</th>
-                <th className="text-left py-1 px-2 text-gray-400 font-medium text-xs uppercase">Local</th>
-                <th className="text-left py-1 px-2 text-gray-400 font-medium text-xs uppercase">Network</th>
+                <th className="text-left py-1 px-2 text-gray-400 font-medium text-xs uppercase">Network Pieces</th>
                 <th className="text-left py-1 px-2 text-gray-400 font-medium text-xs uppercase">Status</th>
                 <th className="text-left py-1 px-2 text-gray-400 font-medium text-xs uppercase w-48">Coverage</th>
               </tr>
@@ -125,32 +157,23 @@ export default function ContentHealthDetail({ cid, onClose }: Props) {
                 const segK = (seg as any).k ?? data.k;
                 const networkReconstructable = (seg as any).network_reconstructable ?? (networkPieces >= segK);
                 const ratio = segK > 0 ? networkPieces / segK : 0;
-                const status = networkReconstructable ? (ratio >= 1.5 ? 'Healthy' : 'OK') : (ratio >= 0.7 ? 'Low' : 'Critical');
-                const statusColor = status === 'Healthy' ? 'text-green-600' :
-                                   status === 'OK' ? 'text-blue-600' :
-                                   status === 'Low' ? 'text-amber-500' : 'text-red-500';
-                
+
                 return (
                   <tr key={seg.index} className="border-b border-gray-200/50 hover:bg-gray-50">
-                    <td className="py-2 px-2">
-                      <span className="font-mono text-sm font-medium">{seg.index}</span>
+                    <td className="py-1.5 px-2"><span className="font-mono text-sm">{seg.index}</span></td>
+                    <td className="py-1.5 px-2">
+                      <span className={`font-semibold ${networkReconstructable ? 'text-green-600' : 'text-red-500'}`}>
+                        {networkPieces}
+                      </span>
                     </td>
-                    <td className="py-2 px-2">
-                      <span className="text-gray-600">{seg.local_pieces} pieces</span>
-                    </td>
-                    <td className="py-2 px-2">
-                      <span className={`font-semibold ${statusColor}`}>{networkPieces} pieces</span>
-                    </td>
-                    <td className="py-2 px-2">
+                    <td className="py-1.5 px-2">
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                        status === 'Healthy' ? 'bg-green-100 text-green-700' :
-                        status === 'OK' ? 'bg-blue-100 text-blue-700' :
-                        status === 'Low' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
+                        networkReconstructable ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                       }`}>
                         {networkReconstructable ? '✓ Reconstructable' : '✗ Insufficient'}
                       </span>
                     </td>
-                    <td className="py-2 px-2">
+                    <td className="py-1.5 px-2">
                       <div className="flex items-center gap-2">
                         <div className="flex-1 bg-gray-200 rounded-full h-2 min-w-[80px]">
                           <div className={`h-2 rounded-full transition-all ${ratioColor(ratio)}`} style={{ width: `${Math.min(100, ratio * 100)}%` }} />
@@ -164,64 +187,40 @@ export default function ContentHealthDetail({ cid, onClose }: Props) {
             </tbody>
           </table>
         </div>
-        
-        {/* Summary stats */}
-        <div className="flex items-center gap-6 mt-3 p-3 bg-gray-50 rounded-lg text-xs">
-          <div className="flex items-center gap-1">
-            <div className="w-2 h-2 rounded-full bg-green-500"></div>
-            <span className="text-gray-600">
-              {data.segments.filter(s => s.rank >= data.k * 1.5).length} high redundancy
-            </span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-            <span className="text-gray-600">
-              {data.segments.filter(s => s.rank >= data.k && s.rank < data.k * 1.5).length} good redundancy
-            </span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="w-2 h-2 rounded-full bg-amber-500"></div>
-            <span className="text-gray-600">
-              {data.segments.filter(s => s.rank >= data.k * 0.7 && s.rank < data.k).length} low redundancy
-            </span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="w-2 h-2 rounded-full bg-red-500"></div>
-            <span className="text-gray-600">
-              {data.segments.filter(s => s.rank < data.k * 0.7).length} critical
-            </span>
-          </div>
-        </div>
-      </div>
 
-      {/* Providers */}
-      {data.providers.length > 0 && (
-        <div>
-          <h4 className="text-sm font-medium text-gray-400 mb-2">Providers ({data.provider_count})</h4>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-1 px-2 text-gray-400 font-medium">Peer</th>
-                  <th className="text-left py-1 px-2 text-gray-400 font-medium">Region</th>
-                  <th className="text-left py-1 px-2 text-gray-400 font-medium">Score</th>
-                  <th className="text-left py-1 px-2 text-gray-400 font-medium">Latency</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.providers.map((p) => (
-                  <tr key={p.peer_id} className="border-b border-gray-200/50">
-                    <td className="py-1 px-2 font-mono text-xs text-gray-400">{truncHash(p.peer_id)}</td>
-                    <td className="py-1 px-2">{p.region}</td>
-                    <td className="py-1 px-2">{(p.score * 100).toFixed(0)}%</td>
-                    <td className="py-1 px-2">{p.latency_ms.toFixed(1)} ms</td>
+        {/* Providers list */}
+        {data.providers.length > 0 && (
+          <div className="mt-3">
+            <h5 className="text-xs font-medium text-gray-400 mb-1.5">Providers ({data.provider_count})</h5>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="text-left py-1 px-2 text-gray-400 font-medium">Peer</th>
+                    <th className="text-left py-1 px-2 text-gray-400 font-medium">Pieces</th>
+                    <th className="text-left py-1 px-2 text-gray-400 font-medium">Region</th>
+                    <th className="text-left py-1 px-2 text-gray-400 font-medium">Score</th>
+                    <th className="text-left py-1 px-2 text-gray-400 font-medium">Latency</th>
+                    <th className="text-left py-1 px-2 text-gray-400 font-medium">Merkle Root</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {data.providers.map((p) => (
+                    <tr key={p.peer_id} className="border-b border-gray-200/50">
+                      <td className="py-1 px-2 font-mono text-gray-500">{truncHash(p.peer_id)}</td>
+                      <td className="py-1 px-2 font-semibold">{p.piece_count}</td>
+                      <td className="py-1 px-2 text-gray-600">{p.region}</td>
+                      <td className="py-1 px-2">{(p.score * 100).toFixed(0)}%</td>
+                      <td className="py-1 px-2 text-gray-600">{p.latency_ms.toFixed(1)}ms</td>
+                      <td className="py-1 px-2 font-mono text-gray-400">{truncHash(p.merkle_root || '')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

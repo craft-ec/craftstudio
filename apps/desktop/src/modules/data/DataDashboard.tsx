@@ -432,8 +432,8 @@ export default function DataDashboard() {
         <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-2 mb-4 text-sm text-red-600">{error}</div>
       )}
 
-      {/* ── Enhanced Overview Stats ─────────────────────── */}
-      <div className="grid grid-cols-5 gap-4 mb-6">
+      {/* ── Node Stats (this node only) ─────────────────── */}
+      <div className="grid grid-cols-4 gap-4 mb-6">
         <StatCard 
           icon={Share2} 
           label="Published" 
@@ -443,27 +443,21 @@ export default function DataDashboard() {
         />
         <StatCard 
           icon={HardDrive} 
-          label="Stored" 
+          label="Storing" 
           value={String(storedContent.length)} 
-          sub={formatBytes(nodeStats?.total_disk_usage || 0)}
-        />
-        <StatCard 
-          icon={Activity} 
-          label="Network Health" 
-          value={netHealth ? `${(netHealth.average_health_ratio * 100).toFixed(1)}%` : `${(avgHealth * 100).toFixed(0)}%`} 
-          color={avgHealth >= 0.8 ? "text-green-600" : avgHealth >= 0.5 ? "text-amber-500" : "text-red-500"} 
-        />
-        <StatCard 
-          icon={Users} 
-          label="Active Providers" 
-          value={String(netHealth?.total_providers_unique ?? 0)}
-          sub={`${netHealth?.storage_node_count ?? 0} storage nodes`}
+          sub={`${formatBytes(nodeStats?.total_disk_usage || 0)} / ${formatBytes(nodeStats?.max_storage_bytes || 0)}`}
         />
         <StatCard 
           icon={Layers} 
-          label="Total Size" 
-          value={formatBytes(totalSize)}
-          sub={`${content.length} items`}
+          label="Local Content" 
+          value={String(content.length)}
+          sub={formatBytes(totalSize)}
+        />
+        <StatCard 
+          icon={Activity} 
+          label="Node Status" 
+          value={connected ? "Online" : "Offline"}
+          color={connected ? "text-green-600" : "text-red-500"}
         />
       </div>
 
@@ -611,6 +605,33 @@ export default function DataDashboard() {
         </button>
         {showNetwork && (
           <div className="mt-4">
+            {/* Network-level stats */}
+            <div className="grid grid-cols-4 gap-4 mb-4">
+              <StatCard 
+                icon={Activity} 
+                label="Network Health" 
+                value={netHealth ? `${(netHealth.average_health_ratio * 100).toFixed(1)}%` : `${(avgHealth * 100).toFixed(0)}%`} 
+                color={avgHealth >= 0.8 ? "text-green-600" : avgHealth >= 0.5 ? "text-amber-500" : "text-red-500"} 
+              />
+              <StatCard 
+                icon={Users} 
+                label="Storage Nodes" 
+                value={String(netHealth?.storage_node_count ?? 0)}
+                sub={`${netHealth?.total_providers_unique ?? 0} unique providers`}
+              />
+              <StatCard 
+                icon={HardDrive} 
+                label="Network Storage" 
+                value={formatBytes(netHealth?.total_network_storage_used ?? 0)}
+                sub={`of ${formatBytes(netHealth?.total_network_storage_committed ?? 0)}`}
+              />
+              <StatCard 
+                icon={Layers} 
+                label="Network Content" 
+                value={String(netHealth?.total_content_count ?? content.length)}
+                sub={`${netHealth?.healthy_content_count ?? 0} healthy, ${netHealth?.degraded_content_count ?? 0} degraded`}
+              />
+            </div>
             <NetworkPeersView />
           </div>
         )}
