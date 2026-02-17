@@ -43,13 +43,22 @@ interface DataCraftState {
   loadAccessList: (cid: string) => Promise<void>;
 }
 
+// Restore content from sessionStorage on page refresh so data isn't lost
+function getCachedContent(): ContentItem[] {
+  try {
+    const cached = sessionStorage.getItem("datacraft_content");
+    return cached ? JSON.parse(cached) : [];
+  } catch { return []; }
+}
+
 export const useDataCraftStore = create<DataCraftState>((set) => ({
-  content: [],
+  content: getCachedContent(),
   accessLists: {},
   loading: false,
   error: null,
 
   clearContent: () => {
+    sessionStorage.removeItem("datacraft_content");
     set({ content: [], accessLists: {}, loading: false, error: null });
   },
 
@@ -73,6 +82,7 @@ export const useDataCraftStore = create<DataCraftState>((set) => ({
         role: (item.role as "publisher" | "storage_provider") || "unknown",
         stage: item.stage || "",
       }));
+      sessionStorage.setItem("datacraft_content", JSON.stringify(content));
       set({ content, loading: false });
     } catch (e) {
       set({ loading: false, error: (e as Error).message });

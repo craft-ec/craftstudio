@@ -292,10 +292,16 @@ export default function DataDashboard() {
   // ── Data loading ────────────────────────────────────────
 
   // Load content when connected; clear only on unmount (instance switch remounts via key={activeId})
+  // Load content on mount and whenever connection is (re)established.
+  // No clearContent on disconnect — keep stale data visible until fresh data arrives.
   useEffect(() => {
     if (connected) loadContent();
+  }, [connected, loadContent]);
+
+  // Only clear on unmount (instance switch remounts via key={activeId})
+  useEffect(() => {
     return () => { clearContent(); };
-  }, [connected, loadContent, clearContent]);
+  }, [clearContent]);
 
   useEffect(() => {
     if (!connected || !daemon) return;
