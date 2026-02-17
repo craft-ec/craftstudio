@@ -54,7 +54,7 @@ export const useDataCraftStore = create<DataCraftState>((set) => ({
   },
 
   loadContent: async () => {
-    set({ loading: true, error: null, content: [] });
+    set({ loading: true, error: null });
     try {
       const items = await getDaemon().contentListDetailed();
       const content: ContentItem[] = (items || []).map((item) => ({

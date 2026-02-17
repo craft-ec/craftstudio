@@ -291,10 +291,10 @@ export default function DataDashboard() {
 
   // ── Data loading ────────────────────────────────────────
 
-  // Clear stale data on mount (instance switch remounts via key={activeId})
+  // Load content when connected; clear only on unmount (instance switch remounts via key={activeId})
   useEffect(() => {
-    clearContent();
     if (connected) loadContent();
+    return () => { clearContent(); };
   }, [connected, loadContent, clearContent]);
 
   useEffect(() => {
