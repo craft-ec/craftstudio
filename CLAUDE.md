@@ -69,3 +69,12 @@ pnpm build && cd ../.. && cargo build
 - Graceful degradation: all pages work offline, show "Daemon offline" banner
 - Tauri commands: `get_identity`, `get_version`, `get_config`, `save_config`
 - Old `useWebSocket` hook still exists but superseded by `daemon` singleton
+
+## Recent Updates (2025-01-17)
+- **Enhanced DataCraft UI**: Reworked content management with clear separation between "Published Content" (I published this) and "Stored Content" (I'm storing others' content)
+- **Publisher behavior**: Publisher deletes all pieces after distribution - UI correctly shows distribution status, not local piece count
+- **Content health visualization**: Enhanced with per-segment rank display, redundancy levels (High/Good/Low/Critical), and provider count analysis
+- **Network visibility**: Added NetworkPeersView component showing connected peers, capabilities, storage utilization, and piece distribution balance
+- **Segment analysis**: ContentHealthDetail now displays detailed per-segment health with rank/k ratios and redundancy categorization
+- **Distribution tracking**: Published content shows distribution status (distributed/distributing/local only) across network nodes
+- **Instance management**: Verified start/stop functionality works correctly with `shutdown` RPC method
