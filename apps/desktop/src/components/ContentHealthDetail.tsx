@@ -113,21 +113,22 @@ export default function ContentHealthDetail({ cid, onClose }: Props) {
             <thead>
               <tr className="border-b border-gray-200">
                 <th className="text-left py-1 px-2 text-gray-400 font-medium text-xs uppercase">Segment</th>
-                <th className="text-left py-1 px-2 text-gray-400 font-medium text-xs uppercase">Local Pieces</th>
-                <th className="text-left py-1 px-2 text-gray-400 font-medium text-xs uppercase">Network Rank</th>
-                <th className="text-left py-1 px-2 text-gray-400 font-medium text-xs uppercase">Redundancy Level</th>
+                <th className="text-left py-1 px-2 text-gray-400 font-medium text-xs uppercase">Local</th>
+                <th className="text-left py-1 px-2 text-gray-400 font-medium text-xs uppercase">Network</th>
+                <th className="text-left py-1 px-2 text-gray-400 font-medium text-xs uppercase">Status</th>
                 <th className="text-left py-1 px-2 text-gray-400 font-medium text-xs uppercase w-48">Coverage</th>
               </tr>
             </thead>
             <tbody>
               {data.segments.map((seg) => {
-                const ratio = data.k > 0 ? seg.rank / data.k : 0;
-                const redundancyLevel = seg.rank >= data.k * 1.5 ? 'High' : 
-                                       seg.rank >= data.k ? 'Good' : 
-                                       seg.rank >= data.k * 0.7 ? 'Low' : 'Critical';
-                const levelColor = seg.rank >= data.k * 1.5 ? 'text-green-600' :
-                                  seg.rank >= data.k ? 'text-blue-600' :
-                                  seg.rank >= data.k * 0.7 ? 'text-amber-500' : 'text-red-500';
+                const networkPieces = (seg as any).network_pieces ?? seg.rank;
+                const segK = (seg as any).k ?? data.k;
+                const networkReconstructable = (seg as any).network_reconstructable ?? (networkPieces >= segK);
+                const ratio = segK > 0 ? networkPieces / segK : 0;
+                const status = networkReconstructable ? (ratio >= 1.5 ? 'Healthy' : 'OK') : (ratio >= 0.7 ? 'Low' : 'Critical');
+                const statusColor = status === 'Healthy' ? 'text-green-600' :
+                                   status === 'OK' ? 'text-blue-600' :
+                                   status === 'Low' ? 'text-amber-500' : 'text-red-500';
                 
                 return (
                   <tr key={seg.index} className="border-b border-gray-200/50 hover:bg-gray-50">
@@ -135,21 +136,18 @@ export default function ContentHealthDetail({ cid, onClose }: Props) {
                       <span className="font-mono text-sm font-medium">{seg.index}</span>
                     </td>
                     <td className="py-2 px-2">
-                      <span className="text-gray-600">{seg.local_pieces}</span>
+                      <span className="text-gray-600">{seg.local_pieces} pieces</span>
                     </td>
                     <td className="py-2 px-2">
-                      <div className="flex items-center gap-2">
-                        <span className={`font-semibold ${levelColor}`}>{seg.rank}</span>
-                        <span className="text-gray-400 text-xs">/{data.k} min</span>
-                      </div>
+                      <span className={`font-semibold ${statusColor}`}>{networkPieces} pieces</span>
                     </td>
                     <td className="py-2 px-2">
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                        redundancyLevel === 'High' ? 'bg-green-100 text-green-700' :
-                        redundancyLevel === 'Good' ? 'bg-blue-100 text-blue-700' :
-                        redundancyLevel === 'Low' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
+                        status === 'Healthy' ? 'bg-green-100 text-green-700' :
+                        status === 'OK' ? 'bg-blue-100 text-blue-700' :
+                        status === 'Low' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
                       }`}>
-                        {redundancyLevel}
+                        {networkReconstructable ? '✓ Reconstructable' : '✗ Insufficient'}
                       </span>
                     </td>
                     <td className="py-2 px-2">
