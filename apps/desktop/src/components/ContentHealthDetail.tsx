@@ -74,39 +74,90 @@ export default function ContentHealthDetail({ cid, onClose }: Props) {
       </div>
 
       {/* Health summary */}
-      <div className="flex items-center gap-4 mb-4 text-sm">
-        <span>Health: <strong>{(data.health_ratio * 100).toFixed(1)}%</strong></span>
-        <span>Min rank: <strong>{data.min_rank}</strong>/{data.k}</span>
-        <span className="flex items-center gap-1"><HardDrive size={14} /> {formatBytes(data.local_disk_usage)}</span>
+      <div className="flex items-center gap-6 mb-4 text-sm">
+        <div>
+          <span className="text-gray-500">Health:</span>
+          <span className={`ml-1 font-semibold ${data.health_ratio >= 0.8 ? 'text-green-600' : data.health_ratio >= 0.5 ? 'text-amber-500' : 'text-red-500'}`}>
+            {(data.health_ratio * 100).toFixed(1)}%
+          </span>
+        </div>
+        <div>
+          <span className="text-gray-500">Min rank:</span>
+          <span className={`ml-1 font-semibold ${data.min_rank >= data.k * 0.8 ? 'text-green-600' : data.min_rank >= data.k * 0.5 ? 'text-amber-500' : 'text-red-500'}`}>
+            {data.min_rank}
+          </span>
+          <span className="text-gray-400">/{data.k}</span>
+        </div>
+        <div>
+          <span className="text-gray-500">Providers:</span>
+          <span className={`ml-1 font-semibold ${data.provider_count >= 5 ? 'text-green-600' : data.provider_count >= 3 ? 'text-amber-500' : 'text-red-500'}`}>
+            {data.provider_count}
+          </span>
+        </div>
+        <div className="flex items-center gap-1">
+          <HardDrive size={14} className="text-gray-400" />
+          <span className="text-gray-600">{formatBytes(data.local_disk_usage)}</span>
+        </div>
       </div>
 
       {/* Segment health table */}
       <div className="mb-4">
-        <h4 className="text-sm font-medium text-gray-400 mb-2">Segments ({data.segments.length})</h4>
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="text-sm font-medium text-gray-700">Per-Segment Health ({data.segments.length} segments)</h4>
+          <div className="text-xs text-gray-500">
+            k={data.k} required for reconstruction
+          </div>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200">
-                <th className="text-left py-1 px-2 text-gray-400 font-medium">Idx</th>
-                <th className="text-left py-1 px-2 text-gray-400 font-medium">Pieces</th>
-                <th className="text-left py-1 px-2 text-gray-400 font-medium">Rank</th>
-                <th className="text-left py-1 px-2 text-gray-400 font-medium w-48">Rank/k</th>
+                <th className="text-left py-1 px-2 text-gray-400 font-medium text-xs uppercase">Segment</th>
+                <th className="text-left py-1 px-2 text-gray-400 font-medium text-xs uppercase">Local Pieces</th>
+                <th className="text-left py-1 px-2 text-gray-400 font-medium text-xs uppercase">Network Rank</th>
+                <th className="text-left py-1 px-2 text-gray-400 font-medium text-xs uppercase">Redundancy Level</th>
+                <th className="text-left py-1 px-2 text-gray-400 font-medium text-xs uppercase w-48">Coverage</th>
               </tr>
             </thead>
             <tbody>
               {data.segments.map((seg) => {
                 const ratio = data.k > 0 ? seg.rank / data.k : 0;
+                const redundancyLevel = seg.rank >= data.k * 1.5 ? 'High' : 
+                                       seg.rank >= data.k ? 'Good' : 
+                                       seg.rank >= data.k * 0.7 ? 'Low' : 'Critical';
+                const levelColor = seg.rank >= data.k * 1.5 ? 'text-green-600' :
+                                  seg.rank >= data.k ? 'text-blue-600' :
+                                  seg.rank >= data.k * 0.7 ? 'text-amber-500' : 'text-red-500';
+                
                 return (
-                  <tr key={seg.index} className="border-b border-gray-200/50">
-                    <td className="py-1 px-2 font-mono text-xs">{seg.index}</td>
-                    <td className="py-1 px-2">{seg.local_pieces}</td>
-                    <td className="py-1 px-2">{seg.rank}</td>
-                    <td className="py-1 px-2">
+                  <tr key={seg.index} className="border-b border-gray-200/50 hover:bg-gray-50">
+                    <td className="py-2 px-2">
+                      <span className="font-mono text-sm font-medium">{seg.index}</span>
+                    </td>
+                    <td className="py-2 px-2">
+                      <span className="text-gray-600">{seg.local_pieces}</span>
+                    </td>
+                    <td className="py-2 px-2">
                       <div className="flex items-center gap-2">
-                        <div className="flex-1 bg-gray-100 rounded-full h-2">
-                          <div className={`h-2 rounded-full ${ratioColor(ratio)}`} style={{ width: `${Math.min(100, ratio * 100)}%` }} />
+                        <span className={`font-semibold ${levelColor}`}>{seg.rank}</span>
+                        <span className="text-gray-400 text-xs">/{data.k} min</span>
+                      </div>
+                    </td>
+                    <td className="py-2 px-2">
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                        redundancyLevel === 'High' ? 'bg-green-100 text-green-700' :
+                        redundancyLevel === 'Good' ? 'bg-blue-100 text-blue-700' :
+                        redundancyLevel === 'Low' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
+                      }`}>
+                        {redundancyLevel}
+                      </span>
+                    </td>
+                    <td className="py-2 px-2">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 bg-gray-200 rounded-full h-2 min-w-[80px]">
+                          <div className={`h-2 rounded-full transition-all ${ratioColor(ratio)}`} style={{ width: `${Math.min(100, ratio * 100)}%` }} />
                         </div>
-                        <span className="text-xs text-gray-400 w-10 text-right">{(ratio * 100).toFixed(0)}%</span>
+                        <span className="text-xs text-gray-500 w-10 text-right font-medium">{(ratio * 100).toFixed(0)}%</span>
                       </div>
                     </td>
                   </tr>
@@ -114,6 +165,34 @@ export default function ContentHealthDetail({ cid, onClose }: Props) {
               })}
             </tbody>
           </table>
+        </div>
+        
+        {/* Summary stats */}
+        <div className="flex items-center gap-6 mt-3 p-3 bg-gray-50 rounded-lg text-xs">
+          <div className="flex items-center gap-1">
+            <div className="w-2 h-2 rounded-full bg-green-500"></div>
+            <span className="text-gray-600">
+              {data.segments.filter(s => s.rank >= data.k * 1.5).length} high redundancy
+            </span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+            <span className="text-gray-600">
+              {data.segments.filter(s => s.rank >= data.k && s.rank < data.k * 1.5).length} good redundancy
+            </span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="w-2 h-2 rounded-full bg-amber-500"></div>
+            <span className="text-gray-600">
+              {data.segments.filter(s => s.rank >= data.k * 0.7 && s.rank < data.k).length} low redundancy
+            </span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="w-2 h-2 rounded-full bg-red-500"></div>
+            <span className="text-gray-600">
+              {data.segments.filter(s => s.rank < data.k * 0.7).length} critical
+            </span>
+          </div>
         </div>
       </div>
 
