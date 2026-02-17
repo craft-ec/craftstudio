@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
   Database, Upload, Download, Lock, Unlock, UserPlus, UserMinus,
-  Pin, ChevronDown, ChevronRight, FolderOpen, Inbox,
+  Pin, ChevronDown, ChevronRight, FolderOpen,
   Activity, HardDrive, Users, Shield, Share2, Layers,
 } from "lucide-react";
 import { useActiveInstance } from "../../hooks/useActiveInstance";

@@ -13,7 +13,6 @@ import { useDaemon, useActiveConnection } from "../../../hooks/useDaemon";
 import StatCard from "../../../components/StatCard";
 
 interface PeerInfo {
-  peer_id: string;
   capabilities: string[];
   score: number;
   avg_latency_ms: number;
