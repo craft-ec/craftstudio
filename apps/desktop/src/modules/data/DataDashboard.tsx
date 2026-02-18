@@ -17,7 +17,7 @@ import AggregatorTab from "./tabs/AggregatorTab";
 import NetworkPeersView from "./components/NetworkPeersView";
 import { invoke } from "@tauri-apps/api/core";
 import type { ContentItem } from "../../store/dataCraftStore";
-import type { NetworkHealthResponse, SegmentDetail } from "../../services/daemon";
+import type { NetworkHealthResponse } from "../../services/daemon";
 
 // ── Helpers ─────────────────────────────────────────────
 
@@ -36,12 +36,6 @@ function shortenCid(cid: string): string {
 function healthDot(ratio: number): string {
   if (ratio >= 0.8) return "bg-green-500";
   if (ratio >= 0.5) return "bg-amber-500";
-  return "bg-red-500";
-}
-
-function healthBarColor(ratio: number): string {
-  if (ratio >= 0.8) return "bg-green-500";
-  if (ratio >= 0.5) return "bg-yellow-500";
   return "bg-red-500";
 }
 
@@ -77,56 +71,6 @@ function redundancyLevel(healthRatio: number, providerCount: number): { level: s
   };
 }
 
-// ── Segment Expander ──────────────────────────────────
-
-function SegmentExpander({ cid }: { cid: string }) {
-  const daemon = useDaemon();
-  const [segments, setSegments] = useState<SegmentDetail[] | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!daemon) return;
-    daemon.contentSegments(cid).then((r) => setSegments(r.segments)).catch(() => setSegments([])).finally(() => setLoading(false));
-  }, [daemon, cid]);
-
-  if (loading) return <div className="px-4 py-2 text-xs text-gray-500 animate-pulse">Loading segments…</div>;
-  if (!segments || segments.length === 0) return <div className="px-4 py-2 text-xs text-gray-500">No segment data</div>;
-
-  return (
-    <div className="px-4 py-2 bg-gray-50 border-t border-gray-200">
-      <table className="w-full text-xs">
-        <thead>
-          <tr className="text-gray-500">
-            <th className="text-left py-1 px-2">Segment</th>
-            <th className="text-left py-1 px-2">Pieces/k</th>
-            <th className="text-left py-1 px-2 w-32">Coverage</th>
-            <th className="text-left py-1 px-2">Reconstructable</th>
-          </tr>
-        </thead>
-        <tbody>
-          {segments.map((seg) => {
-            const ratio = seg.k > 0 ? seg.local_pieces / seg.k : 0;
-            return (
-              <tr key={seg.index} className="border-t border-gray-200/30">
-                <td className="py-1 px-2 font-mono">{seg.index}</td>
-                <td className="py-1 px-2">{seg.local_pieces}/{seg.k}</td>
-                <td className="py-1 px-2">
-                  <div className="bg-gray-100 rounded-full h-1.5">
-                    <div className={`h-1.5 rounded-full ${healthBarColor(ratio)}`} style={{ width: `${Math.min(100, ratio * 100)}%` }} />
-                  </div>
-                </td>
-                <td className="py-1 px-2">
-                  {seg.reconstructable ? <span className="text-green-600">✓</span> : <span className="text-gray-400">✗</span>}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
 interface StorageReceipt {
   cid: string;
   storage_node: string;
@@ -142,13 +86,12 @@ interface ContentRowProps {
   item: ContentItem;
   isExpanded: boolean;
   onToggleExpand: (cid: string) => void;
-  onShowDetail: (cid: string) => void;
   onShowAccess: (cid: string) => void;
   onDelete?: (cid: string) => void;
   isPublished: boolean;
 }
 
-function ContentRow({ item, isExpanded, onToggleExpand, onShowDetail, onShowAccess, onDelete, isPublished }: ContentRowProps) {
+function ContentRow({ item, isExpanded, onToggleExpand, onShowAccess, onDelete, isPublished }: ContentRowProps) {
   const cid = item.content_id;
   const redundancy = redundancyLevel(item.health_ratio, item.provider_count);
   
@@ -201,12 +144,6 @@ function ContentRow({ item, isExpanded, onToggleExpand, onShowDetail, onShowAcce
         </td>
         <td className="py-2.5 px-3">
           <div className="flex items-center gap-2">
-            <button
-              onClick={(e) => { e.stopPropagation(); onShowDetail(cid); }}
-              className="text-xs text-craftec-500 hover:text-craftec-600 font-medium"
-            >
-              Details
-            </button>
             {isPublished && (
               <button
                 onClick={(e) => { e.stopPropagation(); onShowAccess(cid); }}
@@ -227,7 +164,9 @@ function ContentRow({ item, isExpanded, onToggleExpand, onShowDetail, onShowAcce
         </td>
       </tr>
       {isExpanded && (
-        <tr><td colSpan={9} className="p-0"><SegmentExpander cid={cid} /></td></tr>
+        <tr><td colSpan={9} className="p-0">
+          <ContentHealthDetail cid={cid} />
+        </td></tr>
       )}
     </React.Fragment>
   );
@@ -261,8 +200,6 @@ export default function DataDashboard() {
   const [showAccess, setShowAccess] = useState<string | null>(null);
   const [accessDid, setAccessDid] = useState("");
 
-  // Content detail
-  const [detailCid, setDetailCid] = useState<string | null>(null);
   const [expandedCid, setExpandedCid] = useState<string | null>(() => localStorage.getItem("dc:expandedCid"));
   const toggleExpandCid = (cid: string) => {
     setExpandedCid(v => {
@@ -461,9 +398,6 @@ export default function DataDashboard() {
         />
       </div>
 
-      {/* ── Content Health Detail (overlay) ──────────────── */}
-      {detailCid && <ContentHealthDetail cid={detailCid} onClose={() => setDetailCid(null)} />}
-
       {/* ── Published Content ─────────────────────────────── */}
       <div className="bg-white rounded-xl p-4 mb-6 shadow-sm border border-gray-200">
         <div className="flex items-center justify-between mb-1">
@@ -518,7 +452,6 @@ export default function DataDashboard() {
                     item={item}
                     isExpanded={expandedCid === item.content_id}
                     onToggleExpand={toggleExpandCid}
-                    onShowDetail={setDetailCid}
                     onShowAccess={setShowAccess}
                     onDelete={handleDeleteLocal}
                     isPublished={true}
@@ -571,7 +504,6 @@ export default function DataDashboard() {
                     item={item}
                     isExpanded={expandedCid === item.content_id}
                     onToggleExpand={toggleExpandCid}
-                    onShowDetail={setDetailCid}
                     onShowAccess={setShowAccess}
                     isPublished={false}
                   />

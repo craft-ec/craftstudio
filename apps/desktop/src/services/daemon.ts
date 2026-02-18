@@ -16,6 +16,9 @@ export interface SegmentHealth {
   index: number;
   local_pieces: number;
   rank: number;
+  network_pieces?: number;
+  network_reconstructable?: boolean;
+  k?: number;
 }
 
 export interface ProviderInfo {
@@ -27,6 +30,7 @@ export interface ProviderInfo {
   latency_ms: number;
   merkle_root?: string;
   last_seen?: number;
+  is_local?: boolean;
 }
 
 export interface ContentHealthResponse {
@@ -44,6 +48,8 @@ export interface ContentHealthResponse {
   role: string;
   stage: string;
   local_disk_usage: number;
+  network_total_pieces: number;
+  local_health_ratio: number;
 }
 
 export interface ContentDetailedItem {
