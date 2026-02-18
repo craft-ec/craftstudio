@@ -114,6 +114,34 @@ export interface NodeStatsResponse {
   uptime_secs: number;
 }
 
+// ── Health History types ────────────────────────────────
+
+export interface HealthSnapshotSegment {
+  index: number;
+  rank: number;
+  k: number;
+  provider_count: number;
+}
+
+export interface HealthAction {
+  Repaired?: { segment: number; offset: number };
+  Degraded?: { segment: number };
+}
+
+export interface HealthSnapshot {
+  timestamp: number;
+  content_id: string;
+  segment_count: number;
+  segments: HealthSnapshotSegment[];
+  provider_count: number;
+  health_ratio: number;
+  actions: HealthAction[];
+}
+
+export interface HealthHistoryResponse {
+  snapshots: HealthSnapshot[];
+}
+
 const RECONNECT_MS = 3_000;
 const REQUEST_TIMEOUT_MS = 30_000;
 
@@ -436,6 +464,10 @@ class DaemonClient {
 
   contentHealth(cid: string) {
     return this.call<ContentHealthResponse>("content.health", { cid });
+  }
+
+  contentHealthHistory(cid: string, since?: number) {
+    return this.call<HealthHistoryResponse>("content.health_history", { cid, since });
   }
 
   contentListDetailed() {

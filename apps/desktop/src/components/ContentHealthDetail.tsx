@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { HardDrive, ChevronDown, ChevronRight } from "lucide-react";
 import { useDaemon } from "../hooks/useDaemon";
 import type { ContentHealthResponse } from "../services/daemon";
+import HealthTimeline from "./HealthTimeline";
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 B";
@@ -152,6 +153,9 @@ export default function ContentHealthDetail({ cid }: Props) {
       {data.providers.length > 0 && (
         <ProvidersList providers={data.providers} count={data.provider_count} />
       )}
+
+      {/* Health Timeline */}
+      <HealthTimeline cid={cid} />
     </div>
   );
 }
