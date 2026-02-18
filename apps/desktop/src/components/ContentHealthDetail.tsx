@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Pin, HardDrive, ChevronDown, ChevronRight } from "lucide-react";
+import { HardDrive, ChevronDown, ChevronRight } from "lucide-react";
 import { useDaemon } from "../hooks/useDaemon";
 import type { ContentHealthResponse } from "../services/daemon";
 
@@ -85,25 +85,16 @@ export default function ContentHealthDetail({ cid }: Props) {
 
   return (
     <div className="px-4 py-2 bg-gray-50/50">
-      {/* Compact summary row */}
+      {/* Network summary — only fields NOT already in the row */}
       <div className="flex items-center gap-4 text-xs text-gray-600 mb-2">
-        <span className="font-mono text-gray-400">{truncHash(data.content_id)}</span>
-        <span>{formatBytes(data.original_size)}</span>
         <span>
-          Role: <span className={`px-1 py-0.5 rounded text-[10px] font-medium ${
-            data.role === 'publisher' ? 'bg-craftec-100 text-craftec-700' : 'bg-blue-100 text-blue-700'
-          }`}>{data.role === 'publisher' ? 'Publisher' : 'Storage'}</span>
-        </span>
-        <span>Stage: {data.stage}</span>
-        <span className="flex items-center gap-1"><HardDrive size={10} className="text-gray-400" />{formatBytes(data.local_disk_usage)}</span>
-        <span>
-          Health: <span className={`font-semibold ${data.health_ratio >= 0.8 ? 'text-green-600' : data.health_ratio >= 0.5 ? 'text-amber-500' : 'text-red-500'}`}>
+          Network Health: <span className={`font-semibold ${data.health_ratio >= 0.8 ? 'text-green-600' : data.health_ratio >= 0.5 ? 'text-amber-500' : 'text-red-500'}`}>
             {(data.health_ratio * 100).toFixed(1)}%
           </span>
         </span>
         <span>Providers: <span className="font-semibold">{data.provider_count}</span></span>
-        <span>Network pieces: <span className="font-semibold">{data.network_total_pieces ?? '—'}</span></span>
-        {data.pinned && <Pin size={10} className="text-craftec-400" />}
+        <span>Total pieces: <span className="font-semibold">{data.network_total_pieces ?? '—'}</span></span>
+        <span className="flex items-center gap-1"><HardDrive size={10} className="text-gray-400" />{formatBytes(data.local_disk_usage)}</span>
       </div>
 
       {/* Merged segment table */}
