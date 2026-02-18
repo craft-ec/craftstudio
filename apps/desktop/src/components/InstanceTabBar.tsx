@@ -33,7 +33,7 @@ export default function InstanceTabBar({ onAddInstance }: Props) {
         const status = connectionStatus[inst.id] ?? "disconnected";
         if (status === "connected") continue;
         try {
-          await invoke("start_datacraft_daemon", {
+          await invoke("start_craftobj_daemon", {
             config: {
               data_dir: inst.dataDir,
               socket_path: inst.socket_path,

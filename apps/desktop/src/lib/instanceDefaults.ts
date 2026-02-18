@@ -7,8 +7,8 @@ import { generateId } from "../store/instanceStore";
  */
 /**
  * Derive a human-friendly name from a data directory path.
- * "/tmp/datacraft-node-12" → "datacraft-node-12"
- * "/Users/me/.datacraft" → ".datacraft"
+ * "/tmp/craftobj-node-12" → "craftobj-node-12"
+ * "/Users/me/.craftobj" → ".craftobj"
  */
 function nameFromDir(dir: string): string {
   const parts = dir.replace(/\/+$/, '').split('/');
@@ -27,7 +27,7 @@ export function makeInstanceConfig(
 ): InstanceConfig {
   const id = generateId();
   const shortId = id.slice(0, 8);
-  const dataDir = overrides.dataDir ?? `~/.datacraft/nodes/${shortId}`;
+  const dataDir = overrides.dataDir ?? `~/.craftobj/nodes/${shortId}`;
   // Name: use explicit name, or derive from directory, or fallback to short id
   const name = overrides.name || nameFromDir(dataDir);
 

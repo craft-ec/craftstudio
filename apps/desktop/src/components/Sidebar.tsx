@@ -9,7 +9,7 @@ interface Props {
 const navItems: { page: Page; icon: typeof Shield; label: string }[] = [
   { page: "dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { page: "tunnel", icon: Shield, label: "TunnelCraft" },
-  { page: "data", icon: Database, label: "DataCraft" },
+  { page: "data", icon: Database, label: "CraftOBJ" },
   { page: "identity", icon: User, label: "Identity" },
   { page: "network", icon: Globe, label: "Network" },
   { page: "wallet", icon: Wallet, label: "Wallet" },

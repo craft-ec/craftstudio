@@ -167,10 +167,10 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
 
     // Config is already on disk — daemon will read it on start
     try {
-      const running = await invoke<Array<{ pid: number; ws_port: number }>>("list_datacraft_daemons");
+      const running = await invoke<Array<{ pid: number; ws_port: number }>>("list_craftobj_daemons");
       const match = running.find((d) => d.ws_port === instance.ws_port);
       if (match) {
-        await invoke("stop_datacraft_daemon", { pid: match.pid });
+        await invoke("stop_craftobj_daemon", { pid: match.pid });
         logActivity(id, "Daemon stopped", "info");
         await new Promise((r) => setTimeout(r, 500));
       }
@@ -179,7 +179,7 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
     }
 
     try {
-      await invoke("start_datacraft_daemon", {
+      await invoke("start_craftobj_daemon", {
         config: {
           data_dir: instance.dataDir,
           socket_path: instance.socket_path,
@@ -536,7 +536,7 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
     // Start daemons and connect
     for (const inst of loaded) {
       if (inst.autoStart && inst.dataDir) {
-        invoke<{ pid: number; ws_port: number; data_dir: string }>("start_datacraft_daemon", {
+        invoke<{ pid: number; ws_port: number; data_dir: string }>("start_craftobj_daemon", {
           config: {
             data_dir: inst.dataDir,
             socket_path: inst.socket_path,

@@ -6,10 +6,10 @@ import {
 } from "lucide-react";
 import { useActiveInstance } from "../../hooks/useActiveInstance";
 import { useDaemon, useActiveConnection } from "../../hooks/useDaemon";
-import { useDataCraftStore } from "../../store/dataCraftStore";
+import { useCraftOBJStore } from "../../store/dataCraftStore";
 import { usePeers } from "../../hooks/usePeers";
 import DaemonOffline from "../../components/DaemonOffline";
-import DataCraftActivity from "../../components/DataCraftActivity";
+import CraftOBJActivity from "../../components/CraftOBJActivity";
 import StatCard from "../../components/StatCard";
 import ContentHealthDetail from "../../components/ContentHealthDetail";
 import Modal from "../../components/Modal";
@@ -182,7 +182,7 @@ export default function DataDashboard() {
 
   const daemon = useDaemon();
   const { connected } = useActiveConnection();
-  const { content, accessLists, loading, error, clearContent, loadContent, publishContent, grantAccess, revokeAccess, loadAccessList } = useDataCraftStore();
+  const { content, accessLists, loading, error, clearContent, loadContent, publishContent, grantAccess, revokeAccess, loadAccessList } = useCraftOBJStore();
   const { storage: storagePeerCount } = usePeers();
 
   // Network health & stats
@@ -343,7 +343,7 @@ export default function DataDashboard() {
       {/* ── Header & Actions ─────────────────────────────── */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Database className="text-craftec-500" /> DataCraft
+          <Database className="text-craftec-500" /> CraftOBJ
         </h1>
         <div className="flex items-center gap-3">
           <button
@@ -713,7 +713,7 @@ export default function DataDashboard() {
         </div>
       </Modal>
 
-      <DataCraftActivity />
+      <CraftOBJActivity />
     </div>
   );
 }

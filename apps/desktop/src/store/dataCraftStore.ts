@@ -31,7 +31,7 @@ export interface AccessEntry {
   grantedAt: string;
 }
 
-interface DataCraftState {
+interface CraftOBJState {
   content: ContentItem[];
   accessLists: Record<string, AccessEntry[]>;
   loading: boolean;
@@ -48,19 +48,19 @@ interface DataCraftState {
 // Restore content from sessionStorage on page refresh so data isn't lost
 function getCachedContent(): ContentItem[] {
   try {
-    const cached = sessionStorage.getItem("datacraft_content");
+    const cached = sessionStorage.getItem("craftobj_content");
     return cached ? JSON.parse(cached) : [];
   } catch { return []; }
 }
 
-export const useDataCraftStore = create<DataCraftState>((set) => ({
+export const useCraftOBJStore = create<CraftOBJState>((set) => ({
   content: getCachedContent(),
   accessLists: {},
   loading: false,
   error: null,
 
   clearContent: () => {
-    sessionStorage.removeItem("datacraft_content");
+    sessionStorage.removeItem("craftobj_content");
     set({ content: [], accessLists: {}, loading: false, error: null });
   },
 
@@ -84,7 +84,7 @@ export const useDataCraftStore = create<DataCraftState>((set) => ({
         role: (item.role as "publisher" | "storage_provider") || "unknown",
         stage: item.stage || "",
       }));
-      sessionStorage.setItem("datacraft_content", JSON.stringify(content));
+      sessionStorage.setItem("craftobj_content", JSON.stringify(content));
       set({ content, loading: false });
     } catch (e) {
       set({ loading: false, error: (e as Error).message });

@@ -41,7 +41,7 @@ function formatTime(ts: number): string {
 
 const EMPTY_LOG: ActivityEvent[] = [];
 
-export default function DataCraftActivity() {
+export default function CraftOBJActivity() {
   const [filter, setFilter] = useState<Filter>("all");
   const scrollRef = useRef<HTMLDivElement>(null);
 

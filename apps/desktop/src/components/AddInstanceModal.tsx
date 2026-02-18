@@ -45,7 +45,7 @@ export default function AddInstanceModal({ open, onClose }: Props) {
     setStarting(true);
     setError(null);
     try {
-      const result = await invoke<{ pid: number; ws_port: number; data_dir: string }>("start_datacraft_daemon", {
+      const result = await invoke<{ pid: number; ws_port: number; data_dir: string }>("start_craftobj_daemon", {
         config: { data_dir: null, socket_path: null, ws_port: null, listen_addr: null, binary_path: null },
       });
       addInstance(makeInstanceConfig({
@@ -65,7 +65,7 @@ export default function AddInstanceModal({ open, onClose }: Props) {
     const port = config.ws_port ?? 9091;
     setError(null);
     try {
-      const result = await invoke<{ pid: number; ws_port: number; data_dir: string }>("start_datacraft_daemon", {
+      const result = await invoke<{ pid: number; ws_port: number; data_dir: string }>("start_craftobj_daemon", {
         config: {
           data_dir: config.data_dir,
           socket_path: null,

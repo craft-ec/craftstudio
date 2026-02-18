@@ -37,7 +37,7 @@ export default function EmptyState() {
     setStarting(true);
     setError(null);
     try {
-      const result = await invoke<{ pid: number; ws_port: number; data_dir: string }>("start_datacraft_daemon", {
+      const result = await invoke<{ pid: number; ws_port: number; data_dir: string }>("start_craftobj_daemon", {
         config: {
           data_dir: null,
           socket_path: null,
@@ -58,7 +58,7 @@ export default function EmptyState() {
     } catch (e) {
       const msg = String(e);
       if (msg.includes("not found")) {
-        setError("datacraft-daemon not found. Run: cargo install --path crates/daemon");
+        setError("craftobj-daemon not found. Run: cargo install --path crates/daemon");
       } else {
         setError(msg);
       }
@@ -71,7 +71,7 @@ export default function EmptyState() {
     const port = config.ws_port ?? 9091;
     setError(null);
     try {
-      const result = await invoke<{ pid: number; ws_port: number; data_dir: string }>("start_datacraft_daemon", {
+      const result = await invoke<{ pid: number; ws_port: number; data_dir: string }>("start_craftobj_daemon", {
         config: {
           data_dir: config.data_dir,
           socket_path: null,

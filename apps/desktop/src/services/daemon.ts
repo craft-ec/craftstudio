@@ -1,5 +1,5 @@
 /**
- * Singleton JSON-RPC 2.0 client over WebSocket for DataCraft daemon.
+ * Singleton JSON-RPC 2.0 client over WebSocket for CraftOBJ daemon.
  *
  * Auto-reconnects, tracks request IDs, supports timeouts.
  * All pages go through this — never instantiate WebSocket directly.

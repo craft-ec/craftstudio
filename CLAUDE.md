@@ -56,11 +56,11 @@ pnpm build && cd ../.. && cargo build
 ## Key Design Decisions
 - WebSocket to daemon for protocol operations, Tauri commands for OS-level operations
 - Dark mode default, Craftec brand colors
-- Sidebar navigation: TunnelCraft, DataCraft, Identity, Node, Wallet, Settings
+- Sidebar navigation: TunnelCraft, CraftOBJ, Identity, Node, Wallet, Settings
 - See `docs/CRAFTSTUDIO_DESIGN.md` for full design doc
 
 ## Current State
-- All pages wired to DataCraft daemon via WebSocket JSON-RPC 2.0
+- All pages wired to CraftOBJ daemon via WebSocket JSON-RPC 2.0
 - Singleton `DaemonClient` at `src/services/daemon.ts` — auto-reconnect, typed methods
 - `daemonStore` — reactive connection state used by StatusBar + DaemonOffline banner
 - `dataCraftStore` — publish/list/access all go through daemon IPC
@@ -71,7 +71,7 @@ pnpm build && cd ../.. && cargo build
 - Old `useWebSocket` hook still exists but superseded by `daemon` singleton
 
 ## Recent Updates (2025-01-17)
-- **Enhanced DataCraft UI**: Reworked content management with clear separation between "Published Content" (I published this) and "Stored Content" (I'm storing others' content)
+- **Enhanced CraftOBJ UI**: Reworked content management with clear separation between "Published Content" (I published this) and "Stored Content" (I'm storing others' content)
 - **Publisher behavior**: Publisher deletes all pieces after distribution - UI correctly shows distribution status, not local piece count
 - **Content health visualization**: Enhanced with per-segment rank display, redundancy levels (High/Good/Low/Critical), and provider count analysis
 - **Network visibility**: Added NetworkPeersView component showing connected peers, capabilities, storage utilization, and piece distribution balance

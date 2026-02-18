@@ -13,7 +13,7 @@ export default function DaemonOffline() {
     <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-4 flex items-center justify-between">
       <div className="flex items-center gap-2 text-red-600 text-sm">
         <WifiOff size={16} />
-        <span>Daemon offline — connect the DataCraft daemon to see real data</span>
+        <span>Daemon offline — connect the CraftOBJ daemon to see real data</span>
       </div>
       <button
         onClick={() => client?.reconnect()}

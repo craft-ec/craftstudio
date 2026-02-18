@@ -42,7 +42,7 @@ export default function DaemonNodes() {
 
   const refresh = useCallback(async () => {
     try {
-      const list = await invoke<DaemonInstance[]>("list_datacraft_daemons");
+      const list = await invoke<DaemonInstance[]>("list_craftobj_daemons");
       setDaemons(list);
     } catch {
       /* ignore */
@@ -84,7 +84,7 @@ export default function DaemonNodes() {
     setStarting(true);
     setError(null);
     try {
-      await invoke<DaemonInstance>("start_datacraft_daemon", { config });
+      await invoke<DaemonInstance>("start_craftobj_daemon", { config });
       await refresh();
     } catch (e) {
       setError(String(e));
@@ -95,7 +95,7 @@ export default function DaemonNodes() {
 
   const stopDaemon = async (pid: number) => {
     try {
-      await invoke("stop_datacraft_daemon", { pid });
+      await invoke("stop_craftobj_daemon", { pid });
       setExpandedLogs((prev) => {
         const next = new Set(prev);
         next.delete(pid);

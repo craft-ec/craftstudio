@@ -71,7 +71,7 @@ export default function DashboardPage() {
     if (!instance) return;
     logActivity(instance.id, "Starting daemon...", "info");
     try {
-      await invoke('start_datacraft_daemon', {
+      await invoke('start_craftobj_daemon', {
         config: {
           data_dir: instance.dataDir,
           socket_path: instance.socket_path,

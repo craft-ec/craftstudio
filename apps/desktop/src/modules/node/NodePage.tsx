@@ -153,7 +153,7 @@ export default function NetworkPage() {
       {/* Capability Toggles */}
       <div className="bg-white rounded-xl p-4">
         <h2 className="text-lg font-semibold mb-3">Network Capabilities</h2>
-        <p className="text-sm text-gray-500 mb-4">Enable capabilities to see their tabs on the DataCraft page.</p>
+        <p className="text-sm text-gray-500 mb-4">Enable capabilities to see their tabs on the CraftOBJ page.</p>
         <div className="space-y-3">
           {capabilities.map(({ key, label, enabled }) => (
             <div key={key} className="flex items-center justify-between">
