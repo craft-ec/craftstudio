@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { useActiveInstance } from "../../hooks/useActiveInstance";
 import { useDaemon, useActiveConnection } from "../../hooks/useDaemon";
-import { useCraftOBJStore } from "../../store/dataCraftStore";
+import { useCraftOBJStore } from "../../store/craftObjStore";
 import { usePeers } from "../../hooks/usePeers";
 import DaemonOffline from "../../components/DaemonOffline";
 import CraftOBJActivity from "../../components/CraftOBJActivity";
@@ -16,7 +16,7 @@ import Modal from "../../components/Modal";
 import AggregatorTab from "./tabs/AggregatorTab";
 import NetworkPeersView from "./components/NetworkPeersView";
 import { invoke } from "@tauri-apps/api/core";
-import type { ContentItem } from "../../store/dataCraftStore";
+import type { ContentItem } from "../../store/craftObjStore";
 import type { NetworkHealthResponse } from "../../services/daemon";
 
 // ── Helpers ─────────────────────────────────────────────
