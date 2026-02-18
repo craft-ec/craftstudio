@@ -19,6 +19,8 @@ export interface SegmentHealth {
   network_pieces?: number;
   network_reconstructable?: boolean;
   k?: number;
+  needs_repair?: boolean;
+  needs_degradation?: boolean;
 }
 
 export interface ProviderInfo {
@@ -50,6 +52,8 @@ export interface ContentHealthResponse {
   local_disk_usage: number;
   network_total_pieces: number;
   local_health_ratio: number;
+  has_demand: boolean;
+  tier_min_ratio: number;
 }
 
 export interface ContentDetailedItem {
@@ -67,6 +71,8 @@ export interface ContentDetailedItem {
   health_ratio: number;
   local_disk_usage: number;
   hot?: boolean;
+  has_demand?: boolean;
+  tier_min_ratio?: number;
 }
 
 export interface SegmentDetail {

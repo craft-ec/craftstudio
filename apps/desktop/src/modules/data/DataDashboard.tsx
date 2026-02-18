@@ -121,7 +121,7 @@ function ContentRow({ item, isExpanded, onToggleExpand, onShowAccess, onDelete, 
             <div className="text-xs">
               <span className={`font-medium ${redundancy.color}`}>{redundancy.level}</span>
               <div className="text-gray-400 text-[10px]" title={redundancy.description}>
-                {item.min_rank}/{item.segment_count} segments
+                {item.segment_count} seg{item.has_demand ? ' · 🔥' : ''}
               </div>
             </div>
           </div>

@@ -95,6 +95,8 @@ export default function ContentHealthDetail({ cid }: Props) {
         <span>Providers: <span className="font-semibold">{data.provider_count}</span></span>
         <span>Total pieces: <span className="font-semibold">{data.network_total_pieces ?? '—'}</span></span>
         <span className="flex items-center gap-1"><HardDrive size={10} className="text-gray-400" />{formatBytes(data.local_disk_usage)}</span>
+        <span>{data.has_demand ? '🔥 Hot' : '— No demand'}</span>
+        <span>Target: <span className="font-semibold">{data.tier_min_ratio}x</span></span>
       </div>
 
       {/* Merged segment table */}
@@ -106,6 +108,7 @@ export default function ContentHealthDetail({ cid }: Props) {
             <th className="text-left py-0.5 px-2">Network Pieces</th>
             <th className="text-left py-0.5 px-2">k</th>
             <th className="text-left py-0.5 px-2 w-32">Coverage</th>
+            <th className="text-left py-0.5 px-2">Status</th>
           </tr>
         </thead>
         <tbody>
@@ -129,6 +132,15 @@ export default function ContentHealthDetail({ cid }: Props) {
                     </div>
                     <span className="text-gray-500 w-8 text-right">{(ratio * 100).toFixed(0)}%</span>
                   </div>
+                </td>
+                <td className="py-0.5 px-2">
+                  {seg.needs_repair ? (
+                    <span className="text-amber-500 font-medium">⚠️ Repair</span>
+                  ) : seg.needs_degradation ? (
+                    <span className="text-blue-500 font-medium">↓ Excess</span>
+                  ) : (
+                    <span className="text-green-600 font-medium">✓ Healthy</span>
+                  )}
                 </td>
               </tr>
             );

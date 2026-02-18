@@ -20,6 +20,8 @@ export interface ContentItem {
   local_disk_usage: number;
   hot: boolean;
   pinned: boolean;
+  has_demand?: boolean;
+  tier_min_ratio?: number;
   role: "publisher" | "storage_provider" | "unknown";
   stage: string;
 }
