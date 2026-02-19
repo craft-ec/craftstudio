@@ -268,28 +268,28 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
 
       // -- Categorize --
       // Announcements / DHT
-      if (["capability_announced", "capability_published", "provider_announced", "content_reannounced", "providers_resolved", "manifest_retrieved"].includes(method)) {
+      if (["capability_announced", "provider_announced", "content_reannounced", "providers_resolved", "manifest_retrieved"].includes(method)) {
         category = "announcement";
       }
       // Gossip / network
-      else if (["storage_receipt_received", "removal_notice_received", "challenger_round_completed", "shard_requested", "peer_connected", "peer_disconnected", "peer_discovered"].includes(method)) {
+      else if (["storage_receipt_received", "removal_notice_received", "challenger_round_completed", "peer_connected", "peer_disconnected", "peer_discovered", "content_critical", "content_degraded", "peer_going_offline", "peer_heartbeat_timeout", "transfer_error"].includes(method)) {
         category = "gossip";
       }
       // User-initiated actions
-      else if (["content_published", "content_distributed", "access_granted", "access_revoked", "pool_funded", "removal_published"].includes(method)) {
+      else if (["content_published", "content_distributed", "access_granted", "access_revoked", "pool_funded", "removal_published", "distribution_progress", "channel_opened", "channel_closed"].includes(method)) {
         category = "action";
       }
-      // Maintenance
-      else if (["maintenance_cycle_started", "maintenance_cycle_completed", "distribution_skipped", "discovery_status"].includes(method)) {
+      // Maintenance / system
+      else if (["maintenance_cycle_started", "maintenance_cycle_completed", "distribution_skipped", "discovery_status", "content_evicted", "content_retired", "disk_space_warning", "gc_completed", "storage_pressure", "aggregation_complete"].includes(method)) {
         category = "system";
       }
 
       // -- Levels --
-      if (["content_published", "access_granted", "pool_funded", "peer_connected", "content_distributed", "provider_announced", "maintenance_cycle_completed"].includes(method)) {
+      if (["content_published", "access_granted", "pool_funded", "peer_connected", "content_distributed", "provider_announced", "maintenance_cycle_completed", "channel_opened", "aggregation_complete"].includes(method)) {
         level = "success";
       }
-      if (["dht_error", "distribution_skipped"].includes(method) || method.includes("error")) level = "error";
-      if (["peer_disconnected", "removal_notice_received"].includes(method)) level = "warn";
+      if (["dht_error", "distribution_skipped", "content_critical", "transfer_error"].includes(method) || method.includes("error")) level = "error";
+      if (["peer_disconnected", "removal_notice_received", "content_degraded", "content_evicted", "disk_space_warning", "peer_going_offline", "peer_heartbeat_timeout", "storage_pressure"].includes(method)) level = "warn";
 
       // -- Build descriptive messages --
       const short = (s: unknown) => typeof s === "string" ? s.slice(0, 12) + "…" : "";
@@ -343,23 +343,6 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
           }
           break;
         }
-        case "capability_published": {
-          const caps = p.capabilities as string[] ?? [];
-          const committed = Number(p.storage_committed ?? 0);
-          const used = Number(p.storage_used ?? 0);
-          const isStorage = caps.includes("Storage");
-          if (isStorage && committed > 0) {
-            const avail = committed - used;
-            msg = `Broadcasting: storage node with ${formatBytes(avail)} available of ${formatBytes(committed)} (${Math.round(used / committed * 100)}% used)`;
-          } else if (isStorage) {
-            msg = `Broadcasting: storage node (no storage limit set — configure max_storage_bytes)`;
-            level = "warn";
-          } else {
-            msg = `Broadcasting: ${caps.join(", ").toLowerCase()} node`;
-          }
-          break;
-        }
-
         // Content operations
         case "content_published":
           msg = `Content stored locally: ${formatBytes(Number(p.size ?? p.total_size ?? 0))} → ${p.segment_count ?? 0} segments — encoding and announcing to network...`;
@@ -470,7 +453,6 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
         case "removal_notice_received":
           msg = `Removal notice for ${short(p.content_id)} from ${short(p.creator)} (${p.valid ? "valid" : "INVALID"})`;
           break;
-        case "shard_requested":
         case "piece_requested":
           msg = `Piece requested: ${short(p.content_id)} segment ${p.segment_index ?? p.chunk ?? "?"} by ${short(p.peer_id)}`;
           break;
@@ -491,6 +473,96 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
           break;
         case "removal_published":
           msg = `Content removed: ${short(p.content_id)}`;
+          break;
+
+        // Content health
+        case "content_critical":
+          msg = `⚠️ Content ${short(p.content_id)} critically degraded — health ${Math.round(Number(p.health ?? 0) * 100)}%, ${p.providers ?? 0} providers`;
+          level = "error";
+          category = "gossip";
+          break;
+        case "content_degraded":
+          msg = `Content ${short(p.content_id)} degraded — health ${Math.round(Number(p.health ?? 0) * 100)}%, ${p.providers ?? 0} providers`;
+          level = "warn";
+          category = "gossip";
+          break;
+
+        // Eviction / retirement
+        case "content_evicted":
+          msg = `Content ${short(p.content_id)} evicted: ${p.reason ?? "unknown"}`;
+          level = "warn";
+          category = "system";
+          break;
+        case "content_retired":
+          msg = `Content ${short(p.content_id)} retired: ${p.reason ?? "unknown"}`;
+          level = "info";
+          category = "system";
+          break;
+
+        // Disk space
+        case "disk_space_warning":
+          msg = `⚠️ Disk space warning: ${p.percent ?? 0}% used (${formatBytes(Number(p.used_bytes ?? 0))} / ${formatBytes(Number(p.total_bytes ?? 0))})`;
+          level = "warn";
+          category = "system";
+          break;
+
+        // Distribution progress
+        case "distribution_progress":
+          msg = `Distributing ${short(p.content_id)}: ${p.pieces_pushed ?? 0}/${p.total_pieces ?? 0} pieces to ${p.peers_active ?? 0} peers`;
+          level = "info";
+          category = "action";
+          break;
+
+        // GC
+        case "gc_completed":
+          msg = `GC completed: removed ${p.deleted_count ?? 0} items (${formatBytes(Number(p.deleted_bytes ?? 0))})`;
+          level = "info";
+          category = "system";
+          break;
+
+        // Peer lifecycle
+        case "peer_going_offline":
+          msg = `Peer ${short(p.peer_id)} going offline`;
+          level = "warn";
+          category = "gossip";
+          break;
+        case "peer_heartbeat_timeout":
+          msg = `Peer ${short(p.peer_id)} heartbeat timeout — marking offline`;
+          level = "warn";
+          category = "gossip";
+          break;
+
+        // Storage pressure
+        case "storage_pressure":
+          msg = `Storage pressure detected — ${formatBytes(Number(p.available_bytes ?? 0))} available (threshold: ${formatBytes(Number(p.threshold_bytes ?? 0))})`;
+          level = "warn";
+          category = "system";
+          break;
+
+        // Transfer errors
+        case "transfer_error":
+          msg = `Transfer error for ${short(p.content_id)} with ${short(p.peer_id)}: ${p.message ?? p.error_type ?? "unknown"}`;
+          level = "error";
+          category = "gossip";
+          break;
+
+        // Payment channels
+        case "channel_opened":
+          msg = `Payment channel opened with ${short(p.receiver)}: ${p.amount ?? 0}`;
+          level = "success";
+          category = "action";
+          break;
+        case "channel_closed":
+          msg = `Payment channel ${short(p.channel_id)} closed`;
+          level = "info";
+          category = "action";
+          break;
+
+        // Aggregation
+        case "aggregation_complete":
+          msg = `Aggregation epoch completed — ${p.receipt_count ?? 0} receipts, root ${short(p.merkle_root)}`;
+          level = "success";
+          category = "system";
           break;
       }
 
