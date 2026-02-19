@@ -70,6 +70,7 @@ export interface ContentDetailedItem {
   min_rank: number;
   health_ratio: number;
   local_disk_usage: number;
+  network_total_pieces?: number;
   hot?: boolean;
   has_demand?: boolean;
   tier_min_ratio?: number;
@@ -91,6 +92,7 @@ export interface ContentSegmentsResponse {
 export interface NetworkHealthResponse {
   total_content_count: number;
   total_stored_bytes: number;
+  total_local_bytes: number;
   total_network_storage_committed: number;
   total_network_storage_used: number;
   storage_node_count: number;
@@ -107,6 +109,7 @@ export interface NodeStatsResponse {
   stored_count: number;
   total_local_pieces: number;
   total_disk_usage: number;
+  max_storage_bytes: number;
   storage_root: string;
   capabilities: string[];
   region: string;
@@ -494,6 +497,90 @@ class DaemonClient {
   // Peers
   listPeers() {
     return this.call<Record<string, { capabilities: string[]; score: number; avg_latency_ms: number; storage_committed_bytes: number; storage_used_bytes: number }>>("peers");
+  }
+
+  // Connected peers (libp2p connected set)
+  connectedPeers() {
+    return this.call<{ peers: string[] }>("connected_peers");
+  }
+
+  // Node capabilities
+  nodeCapabilities() {
+    return this.call<{ capabilities: string[] }>("node.capabilities");
+  }
+
+  // Extend content with new RLNC pieces
+  extend(cid: string) {
+    return this.call<{ cid: string; pieces_generated: number }>("extend", { cid });
+  }
+
+  // Receipts
+  receiptsCount() {
+    return this.call<{ storage: number }>("receipts.count");
+  }
+
+  receiptsQuery(opts?: { cid?: string; node?: string; from?: number; to?: number }) {
+    return this.call<{ receipts: Array<{ type: string; cid: string; segment_index: number; piece_id: string; storage_node: string; challenger: string; timestamp: number }> }>(
+      "receipts.query",
+      opts as Record<string, unknown>,
+    );
+  }
+
+  // Data providers
+  dataProviders(cid: string) {
+    return this.call<{ cid: string; provider_count: number; providers: string[] }>("data.providers", { cid });
+  }
+
+  // Data removal (creator-signed network removal)
+  dataRemove(cid: string, creatorSecret: string, reason?: string) {
+    return this.call<{ cid: string; removed: boolean; creator: string; timestamp: number }>(
+      "data.remove",
+      { cid, creator_secret: creatorSecret, ...(reason && { reason }) },
+    );
+  }
+
+  // Payment channels
+  channelOpen(sender: string, receiver: string, amount: number) {
+    return this.call<{ channel_id: string; sender: string; receiver: string; locked_amount: number }>(
+      "channel.open",
+      { sender, receiver, amount },
+    );
+  }
+
+  channelVoucher(channelId: string, amount: number, nonce: number, signature?: string) {
+    return this.call<{ channel_id: string; cumulative_amount: number; nonce: number; valid: boolean }>(
+      "channel.voucher",
+      { channel_id: channelId, amount, nonce, ...(signature && { signature }) },
+    );
+  }
+
+  channelClose(channelId: string) {
+    return this.call<{ channel_id: string; status: string; final_spent: number; locked_amount: number; remaining: number }>(
+      "channel.close",
+      { channel_id: channelId },
+    );
+  }
+
+  channelList(peer?: string) {
+    return this.call<{ channels: Array<{ channel_id: string; sender: string; receiver: string; locked_amount: number; spent: number; remaining: number; nonce: number }> }>(
+      "channel.list",
+      peer ? { peer } : undefined,
+    );
+  }
+
+  // Settlement (on-chain)
+  settlementOpenChannel(payee: string, amount: number) {
+    return this.call<{ signature: string; confirmed: boolean; payee: string; amount: number }>(
+      "settlement.open_channel",
+      { payee, amount },
+    );
+  }
+
+  settlementCloseChannel(user: string, node: string, amount: number, nonce: number, voucherSignature?: string) {
+    return this.call<{ signature: string; confirmed: boolean; user: string; node: string; amount: number }>(
+      "settlement.close_channel",
+      { user, node, amount, nonce, ...(voucherSignature && { voucher_signature: voucherSignature }) },
+    );
   }
 
   // Network storage summary
