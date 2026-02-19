@@ -6,7 +6,7 @@ use daemon_manager::{DaemonConfig, DaemonInstance, DaemonManager, LogLine};
 use std::sync::Arc;
 
 #[tauri::command]
-fn start_datacraft_daemon(
+fn start_craftobj_daemon(
     state: tauri::State<'_, Arc<DaemonManager>>,
     config: DaemonConfig,
 ) -> Result<DaemonInstance, String> {
@@ -14,7 +14,7 @@ fn start_datacraft_daemon(
 }
 
 #[tauri::command]
-fn stop_datacraft_daemon(
+fn stop_craftobj_daemon(
     state: tauri::State<'_, Arc<DaemonManager>>,
     pid: u32,
 ) -> Result<(), String> {
@@ -22,7 +22,7 @@ fn stop_datacraft_daemon(
 }
 
 #[tauri::command]
-fn list_datacraft_daemons(
+fn list_craftobj_daemons(
     state: tauri::State<'_, Arc<DaemonManager>>,
 ) -> Vec<DaemonInstance> {
     state.list()
@@ -54,9 +54,9 @@ pub fn run() {
             config::get_default_config,
             config::read_daemon_config,
             config::write_daemon_config,
-            start_datacraft_daemon,
-            stop_datacraft_daemon,
-            list_datacraft_daemons,
+            start_craftobj_daemon,
+            stop_craftobj_daemon,
+            list_craftobj_daemons,
             get_daemon_logs,
         ])
         .run(tauri::generate_context!())

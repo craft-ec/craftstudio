@@ -64,7 +64,7 @@ impl DaemonManager {
         // Same directory as current exe
         if let Ok(exe) = std::env::current_exe() {
             if let Some(dir) = exe.parent() {
-                let candidate = dir.join("datacraft-daemon");
+                let candidate = dir.join("craftobj-daemon");
                 if candidate.exists() {
                     return Ok(candidate);
                 }
@@ -73,7 +73,7 @@ impl DaemonManager {
 
         // ~/.cargo/bin/
         if let Some(home) = dirs::home_dir() {
-            let candidate = home.join(".cargo").join("bin").join("datacraft-daemon");
+            let candidate = home.join(".cargo").join("bin").join("craftobj-daemon");
             if candidate.exists() {
                 return Ok(candidate);
             }
@@ -81,7 +81,7 @@ impl DaemonManager {
 
         // PATH
         if let Ok(output) = Command::new("which")
-            .arg("datacraft-daemon")
+            .arg("craftobj-daemon")
             .output()
         {
             if output.status.success() {
@@ -92,7 +92,7 @@ impl DaemonManager {
             }
         }
 
-        Err("datacraft-daemon binary not found. Install it or provide a path.".to_string())
+        Err("craftobj-daemon binary not found. Install it or provide a path.".to_string())
     }
 
     pub fn start(&self, config: DaemonConfig) -> Result<DaemonInstance, String> {
@@ -105,18 +105,18 @@ impl DaemonManager {
             if is_primary {
                 dirs::home_dir()
                     .unwrap_or_else(|| PathBuf::from("."))
-                    .join(".datacraft")
+                    .join(".craftobj")
                     .to_string_lossy()
                     .to_string()
             } else {
-                format!("/tmp/datacraft-node-{}", *index)
+                format!("/tmp/craftobj-node-{}", *index)
             }
         });
         let socket_path = config.socket_path.unwrap_or_else(|| {
             if is_primary {
-                "/tmp/datacraft.sock".to_string()
+                "/tmp/craftobj.sock".to_string()
             } else {
-                format!("/tmp/datacraft-{}.sock", *index)
+                format!("/tmp/craftobj-{}.sock", *index)
             }
         });
         let listen_addr = config

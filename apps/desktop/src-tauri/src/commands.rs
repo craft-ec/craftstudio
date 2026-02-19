@@ -70,7 +70,7 @@ pub fn get_daemon_api_key(data_dir: Option<String>) -> Result<String, String> {
     } else {
         dirs::home_dir()
             .ok_or_else(|| "Cannot determine home directory".to_string())?
-            .join(".datacraft")
+            .join(".craftobj")
             .join("api_key")
     };
     fs::read_to_string(&path)
@@ -102,8 +102,8 @@ pub fn discover_local_daemons() -> Vec<LocalDaemonConfig> {
         None => return results,
     };
 
-    // 1. Default: ~/.datacraft
-    let default_dir = home.join(".datacraft");
+    // 1. Default: ~/.craftobj
+    let default_dir = home.join(".craftobj");
     if default_dir.exists() {
         results.push(probe_daemon_dir(&default_dir, "Default Node", Some(9091)));
     }
@@ -130,14 +130,14 @@ pub fn discover_local_daemons() -> Vec<LocalDaemonConfig> {
         }
     }
 
-    // 3. Temp dirs: /tmp/datacraft-node-*
+    // 3. Temp dirs: /tmp/craftobj-node-*
     if let Ok(entries) = fs::read_dir("/tmp") {
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_dir() {
                 let name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
-                if name.starts_with("datacraft-node-") || name.starts_with("datacraft-") {
-                    let index: u16 = name.trim_start_matches("datacraft-node-")
+                if name.starts_with("craftobj-node-") || name.starts_with("craftobj-") {
+                    let index: u16 = name.trim_start_matches("craftobj-node-")
                         .parse().unwrap_or(0);
                     let port = 9091 + index;
                     results.push(probe_daemon_dir(&path, &name, Some(port)));
