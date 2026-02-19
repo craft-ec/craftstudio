@@ -11,13 +11,16 @@ import IdentityPage from "./modules/identity/IdentityPage";
 import NetworkPage from "./modules/node/NodePage";
 import SettingsPage from "./modules/settings/SettingsPage";
 import DashboardPage from "./modules/dashboard/DashboardPage";
+import ComputePage from "./modules/compute/ComputePage";
+import SecurityPage from "./modules/security/SecurityPage";
+import FilesystemPage from "./modules/filesystem/FilesystemPage";
 import { useConfigStore } from "./store/configStore";
 import { useInstanceStore } from "./store/instanceStore";
 import { useIdentityStore } from "./store/identityStore";
 import { useWalletStore } from "./store/walletStore";
 import { invoke } from "@tauri-apps/api/core";
 
-export type Page = "dashboard" | "tunnel" | "data" | "identity" | "network" | "wallet" | "settings";
+export type Page = "dashboard" | "tunnel" | "data" | "compute" | "security" | "filesystem" | "identity" | "network" | "wallet" | "settings";
 
 function App() {
   const [page, setPage] = useState<Page>("dashboard");
@@ -68,6 +71,9 @@ function App() {
       case "dashboard": return <DashboardPage />;
       case "tunnel": return <TunnelDashboard />;
       case "data": return <DataDashboard />;
+      case "compute": return <ComputePage />;
+      case "security": return <SecurityPage />;
+      case "filesystem": return <FilesystemPage />;
       case "wallet": return <WalletPage />;
       case "identity": return <IdentityPage />;
       case "network": return <NetworkPage />;

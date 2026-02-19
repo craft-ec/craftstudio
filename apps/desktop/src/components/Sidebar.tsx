@@ -1,4 +1,4 @@
-import { Shield, Database, User, Globe, Wallet, Settings, LayoutDashboard } from "lucide-react";
+import { Shield, Database, User, Globe, Wallet, Settings, LayoutDashboard, Cpu, Lock, FolderOpen } from "lucide-react";
 import type { Page } from "../App";
 
 interface Props {
@@ -10,6 +10,9 @@ const navItems: { page: Page; icon: typeof Shield; label: string }[] = [
   { page: "dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { page: "tunnel", icon: Shield, label: "TunnelCraft" },
   { page: "data", icon: Database, label: "CraftOBJ" },
+  { page: "compute", icon: Cpu, label: "Compute" },
+  { page: "security", icon: Lock, label: "Security" },
+  { page: "filesystem", icon: FolderOpen, label: "Filesystem" },
   { page: "identity", icon: User, label: "Identity" },
   { page: "network", icon: Globe, label: "Network" },
   { page: "wallet", icon: Wallet, label: "Wallet" },
