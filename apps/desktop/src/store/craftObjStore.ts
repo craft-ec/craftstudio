@@ -22,6 +22,7 @@ export interface ContentItem {
   pinned: boolean;
   has_demand?: boolean;
   tier_min_ratio?: number;
+  network_total_pieces?: number;
   role: "publisher" | "storage_provider" | "unknown";
   stage: string;
 }
@@ -81,6 +82,9 @@ export const useCraftOBJStore = create<CraftOBJState>((set) => ({
         local_disk_usage: item.local_disk_usage || 0,
         hot: item.hot ?? false,
         pinned: item.pinned,
+        has_demand: item.has_demand ?? false,
+        tier_min_ratio: item.tier_min_ratio ?? 1.5,
+        network_total_pieces: item.network_total_pieces ?? 0,
         role: (item.role as "publisher" | "storage_provider") || "unknown",
         stage: item.stage || "",
       }));
