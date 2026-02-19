@@ -268,11 +268,11 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
 
       // -- Categorize --
       // Announcements / DHT
-      if (["capability_announced", "provider_announced", "content_reannounced", "providers_resolved", "manifest_retrieved"].includes(method)) {
+      if (["provider_announced", "content_reannounced", "providers_resolved", "manifest_retrieved"].includes(method)) {
         category = "announcement";
       }
       // Gossip / network
-      else if (["storage_receipt_received", "removal_notice_received", "challenger_round_completed", "peer_connected", "peer_disconnected", "peer_discovered", "content_critical", "content_degraded", "peer_going_offline", "peer_heartbeat_timeout", "transfer_error"].includes(method)) {
+      else if (["challenger_round_completed", "peer_connected", "peer_disconnected", "peer_discovered", "content_critical", "content_degraded", "peer_going_offline", "peer_heartbeat_timeout"].includes(method)) {
         category = "gossip";
       }
       // User-initiated actions
@@ -280,7 +280,7 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
         category = "action";
       }
       // Maintenance / system
-      else if (["maintenance_cycle_started", "maintenance_cycle_completed", "distribution_skipped", "discovery_status", "content_evicted", "content_retired", "disk_space_warning", "gc_completed", "storage_pressure", "aggregation_complete"].includes(method)) {
+      else if (["maintenance_cycle_started", "maintenance_cycle_completed", "discovery_status", "content_evicted", "content_retired", "disk_space_warning", "gc_completed", "storage_pressure", "aggregation_complete"].includes(method)) {
         category = "system";
       }
 
@@ -288,8 +288,8 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
       if (["content_published", "access_granted", "pool_funded", "peer_connected", "content_distributed", "provider_announced", "maintenance_cycle_completed", "channel_opened", "aggregation_complete"].includes(method)) {
         level = "success";
       }
-      if (["dht_error", "distribution_skipped", "content_critical", "transfer_error"].includes(method) || method.includes("error")) level = "error";
-      if (["peer_disconnected", "removal_notice_received", "content_degraded", "content_evicted", "disk_space_warning", "peer_going_offline", "peer_heartbeat_timeout", "storage_pressure"].includes(method)) level = "warn";
+      if (["dht_error", "content_critical"].includes(method) || method.includes("error")) level = "error";
+      if (["peer_disconnected", "content_degraded", "content_evicted", "disk_space_warning", "peer_going_offline", "peer_heartbeat_timeout", "storage_pressure"].includes(method)) level = "warn";
 
       // -- Build descriptive messages --
       const short = (s: unknown) => typeof s === "string" ? s.slice(0, 12) + "…" : "";
@@ -327,22 +327,6 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
         }
 
         // Capabilities
-        case "capability_announced": {
-          const caps = p.capabilities as string[] ?? [];
-          const isStorage = caps.includes("Storage");
-          const committed = Number(p.storage_committed ?? 0);
-          const used = Number(p.storage_used ?? 0);
-          const avail = committed - used;
-          if (isStorage && committed > 0) {
-            msg = `Storage node ${short(p.peer_id)} online — ${formatBytes(avail)} available of ${formatBytes(committed)} committed (${Math.round(used / committed * 100)}% used)`;
-            level = "success";
-          } else if (isStorage) {
-            msg = `Storage node ${short(p.peer_id)} online — no storage limit configured`;
-          } else {
-            msg = `Peer ${short(p.peer_id)} joined as ${caps.join(", ").toLowerCase()}`;
-          }
-          break;
-        }
         // Content operations
         case "content_published":
           msg = `Content stored locally: ${formatBytes(Number(p.size ?? p.total_size ?? 0))} → ${p.segment_count ?? 0} segments — encoding and announcing to network...`;
@@ -409,13 +393,6 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
           }
           break;
         }
-        case "distribution_skipped": {
-          const retry = Number(p.retry_secs ?? 600);
-          msg = `Cannot distribute: ${p.reason ?? "unknown reason"} — retrying in ${retry >= 60 ? Math.round(retry / 60) + "min" : retry + "s"}`;
-          level = "warn";
-          break;
-        }
-
         // Maintenance
         case "maintenance_cycle_started": {
           const na = Number(p.needs_announce ?? 0);
@@ -447,15 +424,6 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
         }
 
         // Gossip
-        case "storage_receipt_received":
-          msg = `Storage receipt: ${short(p.content_id)} from ${short(p.storage_node)}`;
-          break;
-        case "removal_notice_received":
-          msg = `Removal notice for ${short(p.content_id)} from ${short(p.creator)} (${p.valid ? "valid" : "INVALID"})`;
-          break;
-        case "piece_requested":
-          msg = `Piece requested: ${short(p.content_id)} segment ${p.segment_index ?? p.chunk ?? "?"} by ${short(p.peer_id)}`;
-          break;
         case "challenger_round_completed":
           msg = `PDP challenger completed ${p.rounds ?? 0} rounds`;
           break;
@@ -537,13 +505,6 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
           msg = `Storage pressure detected — ${formatBytes(Number(p.available_bytes ?? 0))} available (threshold: ${formatBytes(Number(p.threshold_bytes ?? 0))})`;
           level = "warn";
           category = "system";
-          break;
-
-        // Transfer errors
-        case "transfer_error":
-          msg = `Transfer error for ${short(p.content_id)} with ${short(p.peer_id)}: ${p.message ?? p.error_type ?? "unknown"}`;
-          level = "error";
-          category = "gossip";
           break;
 
         // Payment channels
