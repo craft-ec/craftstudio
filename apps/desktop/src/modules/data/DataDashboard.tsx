@@ -196,9 +196,19 @@ export default function DataDashboard() {
   const [publishing, setPublishing] = useState(false);
   const [showNoStorageConfirm, setShowNoStorageConfirm] = useState(false);
 
+  // Fetch modal
+  const [showFetch, setShowFetch] = useState(false);
+  const [fetchCid, setFetchCid] = useState("");
+  const [fetchOutput, setFetchOutput] = useState("");
+  const [fetchKey, setFetchKey] = useState("");
+  const [fetching, setFetching] = useState(false);
+  const [fetchResult, setFetchResult] = useState<{ ok: boolean; msg: string } | null>(null);
+
   // Access modal
   const [showAccess, setShowAccess] = useState<string | null>(null);
   const [accessDid, setAccessDid] = useState("");
+  const [accessCreatorSecret, setAccessCreatorSecret] = useState("");
+  const [accessContentKey, setAccessContentKey] = useState("");
 
   const [expandedCid, setExpandedCid] = useState<string | null>(() => localStorage.getItem("dc:expandedCid"));
   const toggleExpandCid = (cid: string) => {
@@ -318,11 +328,30 @@ export default function DataDashboard() {
     finally { setPublishing(false); }
   };
 
+  const handleFetch = async () => {
+    if (!fetchCid.trim()) return;
+    setFetching(true);
+    setFetchResult(null);
+    try {
+      const result = await daemon?.fetch(fetchCid.trim(), fetchOutput.trim() || undefined, fetchKey.trim() || undefined);
+      setFetchResult({ ok: true, msg: `Fetched to ${result?.path ?? (fetchOutput || "default path")}` });
+      setFetchCid("");
+      setFetchOutput("");
+      setFetchKey("");
+    } catch (e) {
+      setFetchResult({ ok: false, msg: (e as Error).message });
+    } finally {
+      setFetching(false);
+    }
+  };
+
   const handleGrant = async () => {
     if (showAccess && accessDid.trim()) {
       try {
-        await grantAccess(showAccess, accessDid.trim());
+        await grantAccess(showAccess, accessDid.trim(), accessCreatorSecret.trim(), accessContentKey.trim());
         setAccessDid("");
+        setAccessCreatorSecret("");
+        setAccessContentKey("");
       } catch { /* error in store */ }
     }
   };
@@ -357,6 +386,7 @@ export default function DataDashboard() {
             <Upload size={16} /> Publish
           </button>
           <button
+            onClick={() => { setFetchResult(null); setShowFetch(true); }}
             disabled={!connected}
             className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400 text-gray-700 rounded-lg transition-colors text-sm"
           >
@@ -684,6 +714,41 @@ export default function DataDashboard() {
         </div>
       </Modal>
 
+      {/* Fetch Modal */}
+      <Modal open={showFetch} onClose={() => setShowFetch(false)} title="Fetch Content">
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">Content ID (hex)</label>
+            <input type="text" value={fetchCid} onChange={(e) => setFetchCid(e.target.value)} placeholder="abcdef0123456789..."
+              className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-craftec-500" />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">Output Path (optional)</label>
+            <input type="text" value={fetchOutput} onChange={(e) => setFetchOutput(e.target.value)} placeholder="/path/to/output"
+              className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-craftec-500" />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">Decrypt Key (hex, optional)</label>
+            <input type="text" value={fetchKey} onChange={(e) => setFetchKey(e.target.value)} placeholder="For encrypted content"
+              className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-craftec-500" />
+          </div>
+          {fetchResult && (
+            <div className={`text-sm px-3 py-2 rounded-lg ${fetchResult.ok ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
+              {fetchResult.msg}
+            </div>
+          )}
+          <button onClick={handleFetch} disabled={!fetchCid.trim() || fetching}
+            className="w-full py-2 bg-craftec-600 hover:bg-craftec-700 disabled:bg-gray-200 disabled:text-gray-500 text-white rounded-lg transition-colors">
+            {fetching ? (
+              <span className="flex items-center justify-center gap-2">
+                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                Fetching…
+              </span>
+            ) : "Fetch"}
+          </button>
+        </div>
+      </Modal>
+
       {/* Access Control Modal */}
       <Modal open={showAccess !== null} onClose={() => setShowAccess(null)} title="Access Control">
         <div className="space-y-4">
@@ -695,6 +760,16 @@ export default function DataDashboard() {
               className="px-3 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-200 text-white rounded-lg transition-colors">
               <UserPlus size={16} />
             </button>
+          </div>
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">Creator Secret Key (hex, for encrypted content)</label>
+            <input type="text" value={accessCreatorSecret} onChange={(e) => setAccessCreatorSecret(e.target.value)} placeholder="Optional — required for PRE re-encryption"
+              className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-craftec-500" />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">Content Key (hex, for encrypted content)</label>
+            <input type="text" value={accessContentKey} onChange={(e) => setAccessContentKey(e.target.value)} placeholder="Optional — from publish response"
+              className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-craftec-500" />
           </div>
           <div className="space-y-2">
             {accessEntries.length === 0 && <p className="text-sm text-gray-500">No access granted</p>}

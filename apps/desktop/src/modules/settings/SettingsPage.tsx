@@ -326,10 +326,10 @@ export default function SettingsPage() {
                 mono
               />
               <div className="flex gap-2 pt-1">
-                <button className="px-3 py-1.5 text-xs rounded-lg bg-gray-100 hover:bg-gray-50 text-gray-700 transition-colors">
+                <button disabled title="Coming soon" className="px-3 py-1.5 text-xs rounded-lg bg-gray-100 text-gray-400 cursor-not-allowed">
                   Export Keypair
                 </button>
-                <button className="px-3 py-1.5 text-xs rounded-lg bg-gray-100 hover:bg-gray-50 text-gray-700 transition-colors">
+                <button disabled title="Coming soon" className="px-3 py-1.5 text-xs rounded-lg bg-gray-100 text-gray-400 cursor-not-allowed">
                   Import Keypair
                 </button>
               </div>

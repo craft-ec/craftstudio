@@ -47,10 +47,10 @@ function ProvidersList({ providers, count }: { providers: ContentHealthResponse[
               <tr key={p.peer_id} className="border-b border-gray-200/30">
                 <td className="py-0.5 px-2 font-mono text-gray-500">{truncHash(p.peer_id)}{p.is_local ? ' (local)' : ''}</td>
                 <td className="py-0.5 px-2">{p.piece_count}</td>
-                <td className="py-0.5 px-2 text-gray-600">{p.region}</td>
-                <td className="py-0.5 px-2">{(p.score * 100).toFixed(0)}%</td>
-                <td className="py-0.5 px-2 text-gray-600">{p.latency_ms.toFixed(1)}ms</td>
-                <td className="py-0.5 px-2 font-mono text-gray-400">{truncHash(p.merkle_root || '')}</td>
+                <td className="py-0.5 px-2 text-gray-600">{p.region ?? '—'}</td>
+                <td className="py-0.5 px-2">{p.score != null ? `${(p.score * 100).toFixed(0)}%` : '—'}</td>
+                <td className="py-0.5 px-2 text-gray-600">{p.latency_ms != null ? `${p.latency_ms.toFixed(1)}ms` : '—'}</td>
+                <td className="py-0.5 px-2 font-mono text-gray-400">{p.merkle_root ? truncHash(p.merkle_root) : '—'}</td>
               </tr>
             ))}
           </tbody>

@@ -27,9 +27,9 @@ export interface ProviderInfo {
   peer_id: string;
   piece_count: number;
   segment_pieces?: number[];
-  region: string;
-  score: number;
-  latency_ms: number;
+  region?: string;
+  score?: number;
+  latency_ms?: number;
   merkle_root?: string;
   last_seen?: number;
   is_local?: boolean;

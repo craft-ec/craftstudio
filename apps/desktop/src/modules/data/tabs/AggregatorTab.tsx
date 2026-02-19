@@ -48,8 +48,9 @@ export default function AggregatorTab() {
   const load = useCallback(async () => {
     if (!connected) return;
     try {
-      // Try to call aggregator-specific RPC — if the daemon doesn't support it,
-      // we show "Aggregator not running" state
+      // NOTE: "aggregator.status" RPC is planned but not yet implemented in the daemon handler.
+      // When the daemon doesn't recognize the method, the catch block sets aggAvailable=false,
+      // which shows the "Aggregator not running" placeholder — this is the expected behavior.
       const result = await daemon?.call<{
         epochs_processed: number;
         current_epoch: number;

@@ -41,7 +41,7 @@ interface CraftOBJState {
   clearContent: () => void;
   loadContent: () => Promise<void>;
   publishContent: (path: string, encrypted: boolean) => Promise<void>;
-  grantAccess: (cid: string, did: string) => Promise<void>;
+  grantAccess: (cid: string, did: string, creatorSecret?: string, contentKey?: string) => Promise<void>;
   revokeAccess: (cid: string, did: string) => Promise<void>;
   loadAccessList: (cid: string) => Promise<void>;
 }
@@ -126,10 +126,10 @@ export const useCraftOBJStore = create<CraftOBJState>((set) => ({
     }
   },
 
-  grantAccess: async (cid, did) => {
+  grantAccess: async (cid, did, creatorSecret?, contentKey?) => {
     set({ error: null });
     try {
-      await getDaemon().grantAccess(cid, "", did, "");
+      await getDaemon().grantAccess(cid, creatorSecret || "", did, contentKey || "");
       set((state) => ({
         accessLists: {
           ...state.accessLists,
