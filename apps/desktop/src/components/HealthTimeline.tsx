@@ -48,11 +48,13 @@ function deriveEvents(snapshots: HealthSnapshot[]): HealthEvent[] {
     if (prev) {
       for (const seg of snap.segments) {
         const prevSeg = prev.segments.find(s => s.index === seg.index);
-        if (prevSeg && prevSeg.rank !== seg.rank) {
-          const icon = seg.rank < seg.k ? "⚠️" : seg.rank > seg.k * 1.5 ? "📈" : "✓";
+        const pieces = seg.total_pieces ?? seg.rank;
+        const prevPieces = prevSeg ? (prevSeg.total_pieces ?? prevSeg.rank) : pieces;
+        if (prevSeg && prevPieces !== pieces) {
+          const icon = pieces < seg.k ? "⚠️" : pieces > seg.k * 1.5 ? "📈" : "✓";
           events.push({
             time, timestamp: snap.timestamp, segment: seg.index,
-            icon, message: `Rank ${prevSeg.rank}→${seg.rank} (k=${seg.k})`,
+            icon, message: `Pieces ${prevPieces}→${pieces} (k=${seg.k})`,
           });
         }
       }
@@ -81,7 +83,8 @@ function LastScanPanel({ latest }: { latest: HealthSnapshot }) {
       <span className="text-gray-400">Next: ~{nextIn}s</span>
       <span className="text-gray-400">|</span>
       {latest.segments.map(seg => {
-        const ratio = seg.k > 0 ? seg.rank / seg.k : 0;
+        const pieces = seg.total_pieces ?? seg.rank;
+        const ratio = seg.k > 0 ? pieces / seg.k : 0;
         const action = latest.actions.find(a => a.Repaired?.segment === seg.index || a.Degraded?.segment === seg.index);
         let status = "✓ Healthy";
         let cls = "text-green-600";

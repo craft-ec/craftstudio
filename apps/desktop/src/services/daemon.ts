@@ -123,6 +123,7 @@ export interface HealthSnapshotSegment {
   index: number;
   rank: number;
   k: number;
+  total_pieces: number;
   provider_count: number;
 }
 
