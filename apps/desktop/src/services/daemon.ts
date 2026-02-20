@@ -10,14 +10,16 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { InstanceConfig } from '../types/config';
 
-// ── RLNC Health & Statistics types ──────────────────────
+// ── Health & Statistics types ────────────────────────────
+// Health ratio = total_pieces (local + network) / k
+// Populated by pull-based HealthQuery during each scan cycle.
 
 export interface SegmentHealth {
   index: number;
   local_pieces: number;
-  rank: number;
+  // network_pieces: total pieces across all remote providers for this segment
+  // obtained via HealthQuery (pull-based, no gossip, no PieceMap)
   network_pieces?: number;
-  network_reconstructable?: boolean;
   k?: number;
   needs_repair?: boolean;
   needs_degradation?: boolean;
@@ -25,12 +27,11 @@ export interface SegmentHealth {
 
 export interface ProviderInfo {
   peer_id: string;
-  piece_count: number;
-  segment_pieces?: number[];
+  piece_count: number;        // pieces held for the queried segment (from HealthQuery)
+  segment_pieces?: number[];  // per-segment breakdown if available
   region?: string;
   score?: number;
   latency_ms?: number;
-  merkle_root?: string;
   last_seen?: number;
   is_local?: boolean;
 }
@@ -42,8 +43,8 @@ export interface ContentHealthResponse {
   segment_count: number;
   k: number;
   segments: SegmentHealth[];
-  min_rank: number;
-  health_ratio: number;
+  min_piece_count: number;     // minimum pieces across all segments (was min_rank)
+  health_ratio: number;        // min(total_pieces / k) across segments
   provider_count: number;
   providers: ProviderInfo[];
   pinned: boolean;
@@ -55,6 +56,8 @@ export interface ContentHealthResponse {
   has_demand: boolean;
   tier_min_ratio: number;
   health_scanned: boolean;
+  last_scan_time: number | null;
+  health_scan_interval_secs: number;
 }
 
 export interface ContentDetailedItem {
@@ -68,8 +71,8 @@ export interface ContentDetailedItem {
   provider_count?: number;
   role?: string;
   stage?: string;
-  min_rank: number;
-  health_ratio: number;
+  min_piece_count: number;   // minimum pieces across all segments (was min_rank)
+  health_ratio: number;      // min(total_pieces / k)
   local_disk_usage: number;
   network_total_pieces?: number;
   hot?: boolean;

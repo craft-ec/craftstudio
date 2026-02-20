@@ -44,12 +44,12 @@ function deriveEvents(snapshots: HealthSnapshot[]): HealthEvent[] {
       }
     }
 
-    // Rank changes per segment (compare with previous)
+    // Piece count changes per segment (compare with previous)
     if (prev) {
       for (const seg of snap.segments) {
         const prevSeg = prev.segments.find(s => s.index === seg.index);
-        const pieces = seg.total_pieces ?? seg.rank;
-        const prevPieces = prevSeg ? (prevSeg.total_pieces ?? prevSeg.rank) : pieces;
+        const pieces = seg.total_pieces;
+        const prevPieces = prevSeg ? prevSeg.total_pieces : pieces;
         if (prevSeg && prevPieces !== pieces) {
           const icon = pieces < seg.k ? "⚠️" : pieces > seg.k * 1.5 ? "📈" : "✓";
           events.push({
@@ -83,7 +83,7 @@ function LastScanPanel({ latest }: { latest: HealthSnapshot }) {
       <span className="text-gray-400">Next: ~{nextIn}s</span>
       <span className="text-gray-400">|</span>
       {latest.segments.map(seg => {
-        const pieces = seg.total_pieces ?? seg.rank;
+        const pieces = seg.total_pieces;
         const ratio = seg.k > 0 ? pieces / seg.k : 0;
         const action = latest.actions.find(a => a.Repaired?.segment === seg.index || a.Degraded?.segment === seg.index);
         let status = "✓ Healthy";
@@ -147,12 +147,12 @@ export default function HealthTimeline({ cid }: Props) {
   useEffect(() => {
     if (!daemon || !cid) return;
     const since = Date.now() - range.ms;
-    daemon.contentHealthHistory(cid, since).then(r => setSnapshots(r.snapshots)).catch(() => {});
+    daemon.contentHealthHistory(cid, since).then(r => setSnapshots(r.snapshots)).catch(() => { });
 
     // Poll every 30s
     const iv = setInterval(() => {
       const s = Date.now() - range.ms;
-      daemon.contentHealthHistory(cid, s).then(r => setSnapshots(r.snapshots)).catch(() => {});
+      daemon.contentHealthHistory(cid, s).then(r => setSnapshots(r.snapshots)).catch(() => { });
     }, 30_000);
     return () => clearInterval(iv);
   }, [daemon, cid, range]);
@@ -163,7 +163,7 @@ export default function HealthTimeline({ cid }: Props) {
       health: parseFloat(s.health_ratio.toFixed(3)),
       providers: s.provider_count,
     })),
-  [snapshots]);
+    [snapshots]);
 
   const events = useMemo(() => deriveEvents(snapshots), [snapshots]);
   const latest = snapshots.length > 0 ? snapshots[snapshots.length - 1] : null;

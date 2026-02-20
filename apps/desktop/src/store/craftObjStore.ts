@@ -16,7 +16,7 @@ export interface ContentItem {
   local_pieces: number;
   provider_count: number;
   health_ratio: number;
-  min_rank: number;
+  min_piece_count: number;
   local_disk_usage: number;
   hot: boolean;
   pinned: boolean;
@@ -79,7 +79,7 @@ export const useCraftOBJStore = create<CraftOBJState>((set) => ({
         local_pieces: item.local_pieces ?? 0,
         provider_count: item.provider_count ?? 0,
         health_ratio: item.health_ratio || 0,
-        min_rank: item.min_rank || 0,
+        min_piece_count: item.min_piece_count || 0,
         local_disk_usage: item.local_disk_usage || 0,
         hot: item.hot ?? false,
         pinned: item.pinned,
@@ -111,7 +111,7 @@ export const useCraftOBJStore = create<CraftOBJState>((set) => ({
             local_pieces: 0,
             provider_count: 0,
             health_ratio: 0,
-            min_rank: 0,
+            min_piece_count: 0,
             local_disk_usage: 0,
             hot: false,
             pinned: false,
