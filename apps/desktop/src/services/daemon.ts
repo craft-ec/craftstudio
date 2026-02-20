@@ -169,6 +169,7 @@ class DaemonClient {
   private destroyed = false;
   private _url: string;
   private _apiKey: string | null = null;
+  private _dataDir: string | undefined;
 
   get connected(): boolean {
     return this._connected;
@@ -273,8 +274,12 @@ class DaemonClient {
   private scheduleReconnect() {
     if (this.destroyed) return;
     if (this.reconnectTimer) return;
-    this.reconnectTimer = setTimeout(() => {
+    this.reconnectTimer = setTimeout(async () => {
       this.reconnectTimer = null;
+      // Reload API key on reconnect — it may not have existed on first attempt
+      if (!this._apiKey && this._dataDir) {
+        await this.loadApiKey(this._dataDir);
+      }
       this.connect();
     }, RECONNECT_MS);
   }
@@ -295,6 +300,7 @@ class DaemonClient {
   /** Start connecting (public entry point for multi-instance use). */
   async start(dataDir?: string, apiKey?: string) {
     this.destroyed = false;
+    this._dataDir = dataDir;
     if (apiKey) {
       this._apiKey = apiKey;
     } else {
