@@ -84,17 +84,28 @@ export default function ContentHealthDetail({ cid }: Props) {
     return <div className="px-4 py-2 text-xs text-gray-500 animate-pulse">Loading health data…</div>;
   }
 
+  const scanned = data.health_scanned;
+
   return (
     <div className="px-4 py-2 bg-gray-50/50">
+      {/* Banner when not yet scanned */}
+      {!scanned && (
+        <div className="mb-2 px-2 py-1 rounded bg-amber-50 border border-amber-200 text-xs text-amber-700">
+          ⏳ Pending first health scan — network data shown is local only
+        </div>
+      )}
+
       {/* Network summary — only fields NOT already in the row */}
       <div className="flex items-center gap-4 text-xs text-gray-600 mb-2">
         <span>
-          Network Health: <span className={`font-semibold ${data.health_ratio >= 0.8 ? 'text-green-600' : data.health_ratio >= 0.5 ? 'text-amber-500' : 'text-red-500'}`}>
-            {(data.health_ratio * 100).toFixed(1)}%
-          </span>
+          Network Health: {scanned ? (
+            <span className={`font-semibold ${data.health_ratio >= 0.8 ? 'text-green-600' : data.health_ratio >= 0.5 ? 'text-amber-500' : 'text-red-500'}`}>
+              {(data.health_ratio * 100).toFixed(1)}%
+            </span>
+          ) : <span className="text-gray-400">—</span>}
         </span>
-        <span>Providers: <span className="font-semibold">{data.provider_count}</span></span>
-        <span>Total pieces: <span className="font-semibold">{data.network_total_pieces ?? '—'}</span></span>
+        <span>Providers: <span className="font-semibold">{scanned ? data.provider_count : '—'}</span></span>
+        <span>Total pieces: <span className="font-semibold">{scanned ? (data.network_total_pieces ?? '—') : '—'}</span></span>
         <span className="flex items-center gap-1"><HardDrive size={10} className="text-gray-400" />{formatBytes(data.local_disk_usage)}</span>
         <span>{data.has_demand ? '🔥 Hot' : '— No demand'}</span>
         <span>Target: <span className="font-semibold">{data.tier_min_ratio}x</span></span>
@@ -123,25 +134,31 @@ export default function ContentHealthDetail({ cid }: Props) {
                 <td className="py-0.5 px-2 font-mono">{seg.index}</td>
                 <td className="py-0.5 px-2">{seg.local_pieces}</td>
                 <td className="py-0.5 px-2">
-                  <span className={ok ? 'text-green-600' : 'text-red-500'}>{networkPieces}</span>
+                  {scanned ? (
+                    <span className={ok ? 'text-green-600' : 'text-red-500'}>{networkPieces}</span>
+                  ) : <span className="text-gray-400">—</span>}
                 </td>
                 <td className="py-0.5 px-2">{segK}</td>
                 <td className="py-0.5 px-2">
-                  <div className="flex items-center gap-1">
-                    <div className="flex-1 bg-gray-200 rounded-full h-1.5 min-w-[60px]">
-                      <div className={`h-1.5 rounded-full ${ratioColor(ratio)}`} style={{ width: `${Math.min(100, ratio * 100)}%` }} />
+                  {scanned ? (
+                    <div className="flex items-center gap-1">
+                      <div className="flex-1 bg-gray-200 rounded-full h-1.5 min-w-[60px]">
+                        <div className={`h-1.5 rounded-full ${ratioColor(ratio)}`} style={{ width: `${Math.min(100, ratio * 100)}%` }} />
+                      </div>
+                      <span className="text-gray-500 w-8 text-right">{(ratio * 100).toFixed(0)}%</span>
                     </div>
-                    <span className="text-gray-500 w-8 text-right">{(ratio * 100).toFixed(0)}%</span>
-                  </div>
+                  ) : <span className="text-gray-400">—</span>}
                 </td>
                 <td className="py-0.5 px-2">
-                  {seg.needs_repair ? (
-                    <span className="text-amber-500 font-medium">⚠️ Repair</span>
-                  ) : seg.needs_degradation ? (
-                    <span className="text-blue-500 font-medium">↓ Excess</span>
-                  ) : (
-                    <span className="text-green-600 font-medium">✓ Healthy</span>
-                  )}
+                  {scanned ? (
+                    seg.needs_repair ? (
+                      <span className="text-amber-500 font-medium">⚠️ Repair</span>
+                    ) : seg.needs_degradation ? (
+                      <span className="text-blue-500 font-medium">↓ Excess</span>
+                    ) : (
+                      <span className="text-green-600 font-medium">✓ Healthy</span>
+                    )
+                  ) : <span className="text-gray-400">—</span>}
                 </td>
               </tr>
             );

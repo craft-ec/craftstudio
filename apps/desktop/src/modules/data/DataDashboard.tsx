@@ -114,16 +114,22 @@ function ContentRow({ item, isExpanded, onToggleExpand, onShowAccess, onDelete, 
         <td className="py-2.5 px-3 text-gray-600">{formatBytes(item.total_size)}</td>
         <td className="py-2.5 px-3">
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5">
-              <span className={`w-2 h-2 rounded-full ${healthDot(item.health_ratio)}`} />
-              <span className="text-xs text-gray-600">{(item.health_ratio * 100).toFixed(0)}%</span>
-            </div>
-            <div className="text-xs">
-              <span className={`font-medium ${redundancy.color}`}>{redundancy.level}</span>
-              <div className="text-gray-400 text-[10px]" title={redundancy.description}>
-                {item.segment_count} seg{item.has_demand ? ' · 🔥' : ''}
-              </div>
-            </div>
+            {item.health_scanned ? (
+              <>
+                <div className="flex items-center gap-1.5">
+                  <span className={`w-2 h-2 rounded-full ${healthDot(item.health_ratio)}`} />
+                  <span className="text-xs text-gray-600">{(item.health_ratio * 100).toFixed(0)}%</span>
+                </div>
+                <div className="text-xs">
+                  <span className={`font-medium ${redundancy.color}`}>{redundancy.level}</span>
+                  <div className="text-gray-400 text-[10px]" title={redundancy.description}>
+                    {item.segment_count} seg{item.has_demand ? ' · 🔥' : ''}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <span className="text-xs text-gray-400" title="Pending first health scan">—</span>
+            )}
           </div>
         </td>
         <td className="py-2.5 px-3 text-gray-600">{item.segment_count}</td>

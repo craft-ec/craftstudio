@@ -23,6 +23,7 @@ export interface ContentItem {
   has_demand?: boolean;
   tier_min_ratio?: number;
   network_total_pieces?: number;
+  health_scanned?: boolean;
   role: "publisher" | "storage_provider" | "unknown";
   stage: string;
 }

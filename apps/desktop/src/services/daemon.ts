@@ -54,6 +54,7 @@ export interface ContentHealthResponse {
   local_health_ratio: number;
   has_demand: boolean;
   tier_min_ratio: number;
+  health_scanned: boolean;
 }
 
 export interface ContentDetailedItem {
@@ -74,6 +75,7 @@ export interface ContentDetailedItem {
   hot?: boolean;
   has_demand?: boolean;
   tier_min_ratio?: number;
+  health_scanned?: boolean;
 }
 
 export interface SegmentDetail {
