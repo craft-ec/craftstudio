@@ -57,15 +57,13 @@ export default function DashboardPage() {
     if (!instance) return;
     logActivity(instance.id, "Stopping daemon...", "warn");
     try {
-      // Send shutdown RPC over the existing WebSocket connection
-      if (client && connected) {
-        await client.shutdown();
-      }
+      // Use Tauri command to abort the in-process daemon task (not WS RPC which can kill the process)
+      await invoke('stop_craftobj_daemon', { pid: instance.pid });
       logActivity(instance.id, "Daemon stopped", "success");
     } catch (e) {
       logActivity(instance.id, `Stop failed: ${e}`, "error");
     }
-  }, [instance, client, connected, logActivity]);
+  }, [instance, logActivity]);
 
   const handleStart = useCallback(async () => {
     if (!instance) return;
