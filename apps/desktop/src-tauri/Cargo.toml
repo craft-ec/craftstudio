@@ -24,3 +24,14 @@ tokio = { version = "1", features = ["full"] }
 dirs = "5"
 bs58 = "0.5"
 rfd = "0.15"
+
+# In-process daemon
+craftobj-daemon = { path = "../../../../craftobj/crates/daemon" }
+craftec-network = { path = "../../../../craftec-core/crates/network" }
+craftec-keystore = { path = "../../../../craftec-core/crates/keystore" }
+craftec-logging = { path = "../../../../craftec-core/crates/logging" }
+libp2p = { version = "0.56", features = ["tokio"] }
+ed25519-dalek = { version = "2.1", features = ["rand_core"] }
+hex = "0.4"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }

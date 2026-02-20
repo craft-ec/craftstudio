@@ -2,8 +2,11 @@ mod commands;
 mod config;
 mod daemon_manager;
 
-use daemon_manager::{DaemonConfig, DaemonInstance, DaemonManager, LogLine};
-use std::sync::Arc;
+use daemon_manager::{DaemonConfig, DaemonInstance, DaemonLogLayer, DaemonManager, LogLine, SharedLogs};
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
 
 #[tauri::command]
 fn start_craftobj_daemon(
@@ -38,7 +41,26 @@ fn get_daemon_logs(
 }
 
 pub fn run() {
-    let daemon_manager = Arc::new(DaemonManager::new());
+    // Shared log storage for daemon instances
+    let logs: SharedLogs = Arc::new(Mutex::new(HashMap::new()));
+
+    // Set up tracing with both console output and daemon log capture
+    let daemon_log_layer = DaemonLogLayer::new(Arc::clone(&logs));
+    let fmt_layer = tracing_subscriber::fmt::layer()
+        .with_target(true)
+        .with_level(true);
+    let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
+
+    tracing_subscriber::registry()
+        .with(env_filter)
+        .with(fmt_layer)
+        .with(daemon_log_layer)
+        .init();
+
+    // Get a handle to the tokio runtime (Tauri 2 runs on tokio)
+    let runtime_handle = tokio::runtime::Handle::current();
+    let daemon_manager = Arc::new(DaemonManager::new(logs, runtime_handle));
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
