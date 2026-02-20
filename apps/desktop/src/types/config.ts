@@ -82,6 +82,9 @@ export interface InstanceConfig {
   // Bandwidth
   bandwidth_limit_mbps?: number | null;
 
+  // Bootstrap peers (multiaddrs of other running instances)
+  boot_peers?: string[];
+
   /** Preserve unknown fields */
   [key: string]: unknown;
 }

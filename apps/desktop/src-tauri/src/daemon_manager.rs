@@ -223,6 +223,25 @@ impl DaemonManager {
             return Err(format!("Port {} already in use — daemon already running", ws_port));
         }
 
+        // Collect boot peers from already-running instances
+        let boot_peers: Vec<String> = {
+            let daemons = self.daemons.lock().unwrap();
+            daemons
+                .iter()
+                .filter(|d| !d._handle.is_finished())
+                .map(|d| {
+                    // Extract port from listen_addr (e.g. "/ip4/0.0.0.0/tcp/44001" -> 44001)
+                    // and construct a localhost multiaddr for it
+                    let port = d.info.listen_addr
+                        .rsplit('/')
+                        .next()
+                        .and_then(|p| p.parse::<u16>().ok())
+                        .unwrap_or(0);
+                    format!("/ip4/127.0.0.1/tcp/{}", port)
+                })
+                .collect()
+        };
+
         // Write default config if needed
         {
             let config_path = std::path::Path::new(&data_dir).join("config.json");
@@ -245,7 +264,8 @@ impl DaemonManager {
                     "reannounce_interval_secs": 600,
                     "reannounce_threshold_secs": 1200,
                     "challenger_interval_secs": null,
-                    "max_storage_bytes": 10_737_418_240_u64
+                    "max_storage_bytes": 10_737_418_240_u64,
+                    "boot_peers": &boot_peers
                 });
                 if let Err(e) = std::fs::write(
                     &config_path,
@@ -255,6 +275,19 @@ impl DaemonManager {
                         "Warning: failed to write initial daemon config to {:?}: {}",
                         config_path, e
                     );
+                }
+            } else if !boot_peers.is_empty() {
+                // Config exists — inject boot_peers into it
+                if let Ok(raw) = std::fs::read_to_string(&config_path) {
+                    if let Ok(mut json) = serde_json::from_str::<serde_json::Value>(&raw) {
+                        json["boot_peers"] = serde_json::json!(&boot_peers);
+                        if let Err(e) = std::fs::write(
+                            &config_path,
+                            serde_json::to_string_pretty(&json).unwrap_or_default(),
+                        ) {
+                            eprintln!("Warning: failed to update boot_peers in {:?}: {}", config_path, e);
+                        }
+                    }
                 }
             }
         }
