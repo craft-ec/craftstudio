@@ -586,7 +586,8 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
             get().logActivity(inst.id, `Auto-start failed: ${msg}`, "warn");
           }
         }).finally(() => {
-          get().initClient(inst.id);
+          // Delay to let the daemon's WS server start listening
+          setTimeout(() => get().initClient(inst.id), 1500);
         });
       } else {
         get().initClient(inst.id);

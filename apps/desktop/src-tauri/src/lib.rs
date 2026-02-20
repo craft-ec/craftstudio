@@ -3,7 +3,6 @@ mod config;
 mod daemon_manager;
 
 use daemon_manager::{DaemonConfig, DaemonInstance, DaemonLogLayer, DaemonManager, LogLine, SharedLogs};
-use tauri::Manager;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -67,20 +66,9 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .manage(daemon_manager)
-        .setup(|app| {
-            let manager = app.state::<Arc<DaemonManager>>();
-            let config = DaemonConfig {
-                data_dir: None,
-                socket_path: None,
-                ws_port: None,
-                listen_addr: None,
-                binary_path: None,
-                capabilities: None,
-            };
-            match manager.start(config) {
-                Ok(instance) => tracing::info!("Auto-started daemon (ws_port={})", instance.ws_port),
-                Err(e) => tracing::warn!("Failed to auto-start daemon: {}", e),
-            }
+        .setup(|_app| {
+            // Auto-start removed: loadFromConfig in the frontend handles starting
+            // saved instances, and EmptyState handles first-time setup.
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

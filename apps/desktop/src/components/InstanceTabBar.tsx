@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Plus, X, Play, Square } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { useInstanceStore } from "../store/instanceStore";
-import { getClient } from "../services/daemon";
+import { destroyClient } from "../services/daemon";
 
 interface Props {
   onAddInstance: () => void;
@@ -66,11 +66,13 @@ export default function InstanceTabBar({ onAddInstance }: Props) {
         const status = connectionStatus[inst.id] ?? "disconnected";
         if (status !== "connected") continue;
         try {
-          // Send shutdown RPC to the daemon over its WebSocket connection
-          const client = getClient(inst.id);
-          if (client) {
-            await client.shutdown();
+          // Stop daemon via Tauri command using pid (same as restartInstance)
+          const running = await invoke<Array<{ pid: number; ws_port: number }>>("list_craftobj_daemons");
+          const match = running.find((d) => d.ws_port === inst.ws_port);
+          if (match) {
+            await invoke("stop_craftobj_daemon", { pid: match.pid });
           }
+          destroyClient(inst.id);
           logActivity(inst.id, "Daemon stopped", "info");
         } catch (e) {
           logActivity(inst.id, `Stop failed: ${e}`, "warn");
