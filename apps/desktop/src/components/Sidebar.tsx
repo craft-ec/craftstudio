@@ -8,8 +8,8 @@ interface Props {
 
 const navItems: { page: Page; icon: typeof Shield; label: string }[] = [
   { page: "dashboard", icon: LayoutDashboard, label: "Dashboard" },
-  { page: "tunnel", icon: Shield, label: "TunnelCraft" },
-  { page: "data", icon: Database, label: "CraftOBJ" },
+  { page: "tunnel", icon: Shield, label: "VPN" },
+  { page: "data", icon: Database, label: "Object" },
   { page: "compute", icon: Cpu, label: "Compute" },
   { page: "security", icon: Lock, label: "Security" },
   { page: "filesystem", icon: FolderOpen, label: "Filesystem" },

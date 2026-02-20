@@ -214,19 +214,19 @@ export default function DashboardPage() {
         <StatCard
           icon={Users}
           label="Peers"
-          value={String(peerCount)}
-          sub={`${storagePeers} storage`}
+          value={connected ? String(peerCount) : "—"}
+          sub={connected ? `${storagePeers} storage` : "Not running"}
         />
         <StatCard
           icon={HardDrive}
           label="Stored"
-          value={formatBytes(stats.storedBytes)}
+          value={connected ? formatBytes(stats.storedBytes) : "—"}
         />
         <StatCard
           icon={FileText}
           label="Content"
-          value={String(stats.contentCount)}
-          sub={`${stats.pieceCount} pieces`}
+          value={connected ? String(stats.contentCount) : "—"}
+          sub={connected ? `${stats.pieceCount} pieces` : undefined}
         />
       </div>
 
