@@ -20,9 +20,9 @@ export default function InstanceTabBar({ onAddInstance }: Props) {
 
   const statusDot = (id: string) => {
     const status = connectionStatus[id] ?? "disconnected";
-    if (status === "connected") return "bg-green-500";
-    if (status === "connecting") return "bg-amber-400";
-    return "bg-gray-300";
+    if (status === "connected") return "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]";
+    if (status === "connecting") return "bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.6)]";
+    return "bg-theme-border";
   };
 
   const startAll = async () => {
@@ -84,16 +84,15 @@ export default function InstanceTabBar({ onAddInstance }: Props) {
   };
 
   return (
-    <div className="h-11 bg-gray-50 border-b border-gray-200 flex items-center px-3 gap-1 shrink-0" data-tauri-drag-region>
+    <div className="h-11 bg-theme-bg border-b border-theme-border flex items-center px-3 gap-1 shrink-0" data-tauri-drag-region>
       {instances.map((inst) => (
         <button
           key={inst.id}
           onClick={() => setActive(inst.id)}
-          className={`group flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors max-w-[200px] ${
-            activeId === inst.id
-              ? "bg-white text-gray-900 shadow-sm border border-gray-200 font-medium"
-              : "text-gray-500 hover:text-gray-700 hover:bg-white/60"
-          }`}
+          className={`group flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors max-w-[200px] ${activeId === inst.id
+              ? "bg-theme-card text-theme-text shadow-sm border border-theme-border font-medium"
+              : "text-theme-muted hover:text-theme-text hover:bg-theme-card/60"
+            }`}
         >
           <span className={`w-2 h-2 rounded-full ${statusDot(inst.id)}`} />
           <span className="truncate">{inst.name}</span>
@@ -110,7 +109,7 @@ export default function InstanceTabBar({ onAddInstance }: Props) {
       ))}
       <button
         onClick={onAddInstance}
-        className="flex items-center justify-center w-7 h-7 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+        className="flex items-center justify-center w-7 h-7 text-theme-muted hover:text-theme-text hover:bg-theme-border/50 rounded-lg transition-colors"
         title="New instance"
       >
         <Plus size={14} />
@@ -122,7 +121,7 @@ export default function InstanceTabBar({ onAddInstance }: Props) {
         <button
           onClick={startAll}
           disabled={busy}
-          className="flex items-center gap-1 px-2.5 py-1 text-xs text-green-600 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50"
+          className="flex items-center gap-1 px-2.5 py-1 text-xs text-green-500 hover:bg-green-500/10 rounded-lg transition-colors disabled:opacity-50"
           title="Start all instances"
         >
           <Play size={12} />
@@ -131,7 +130,7 @@ export default function InstanceTabBar({ onAddInstance }: Props) {
         <button
           onClick={stopAll}
           disabled={busy}
-          className="flex items-center gap-1 px-2.5 py-1 text-xs text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+          className="flex items-center gap-1 px-2.5 py-1 text-xs text-red-500 hover:bg-red-500/10 rounded-lg transition-colors disabled:opacity-50"
           title="Stop all instances"
         >
           <Square size={12} />

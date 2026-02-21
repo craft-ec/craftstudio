@@ -14,11 +14,13 @@ import {
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { useInstanceStore } from "../../store/instanceStore";
+import { useIdentityStore } from "../../store/identityStore";
 import { useDaemon, useActiveConnection } from "../../hooks/useDaemon";
 // daemon client accessed via useDaemon hook
 import StatCard from "../../components/StatCard";
 import NetworkHealth from "../../components/NetworkHealth";
 import ActivityLog from "../../components/ActivityLog";
+import SwarmVisualizer from "../../components/SwarmVisualizer";
 
 export default function DashboardPage() {
   const instance = useInstanceStore((s) =>
@@ -36,7 +38,13 @@ export default function DashboardPage() {
   const [peerCount, setPeerCount] = useState(0);
   const [storagePeers, setStoragePeers] = useState(0);
   const [restarting, setRestarting] = useState(false);
-  const did: string | null = null; // TODO: fetch from daemon
+  const did = useIdentityStore((s) => s.did);
+  const refreshDid = useIdentityStore((s) => s.refreshDid);
+
+  // Refresh DID when instance changes
+  useEffect(() => {
+    if (instance?.ws_port) refreshDid(instance.ws_port);
+  }, [instance?.ws_port, instance?.id, refreshDid]);
 
   const logActivity = useInstanceStore((s) => s.logActivity);
   const initClient = useInstanceStore((s) => s.initClient);
@@ -138,26 +146,25 @@ export default function DashboardPage() {
       </h1>
 
       {/* Connection Status */}
-      <div className="bg-white rounded-xl p-6 mb-6 flex items-center justify-between">
+      <div className="glass-panel rounded-xl p-6 mb-6 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div
-            className={`w-4 h-4 rounded-full ${
-              connStatus === "connected"
-                ? "bg-green-500 animate-pulse"
-                : connStatus === "connecting"
+            className={`w-4 h-4 rounded-full ${connStatus === "connected"
+              ? "bg-green-500 animate-pulse"
+              : connStatus === "connecting"
                 ? "bg-amber-400 animate-pulse"
                 : "bg-red-500"
-            }`}
+              }`}
           />
           <div>
             <p className="font-semibold text-lg">
               {connStatus === "connected"
                 ? "Connected"
                 : connStatus === "connecting"
-                ? "Connecting..."
-                : "Disconnected"}
+                  ? "Connecting..."
+                  : "Disconnected"}
             </p>
-            <p className="text-sm text-gray-500">{instance ? `ws://127.0.0.1:${instance.ws_port}` : "—"}</p>
+            <p className="text-sm text-theme-muted">{instance ? `ws://127.0.0.1:${instance.ws_port}` : "—"}</p>
           </div>
         </div>
         {instance && (
@@ -168,7 +175,7 @@ export default function DashboardPage() {
                   onClick={handleRestart}
                   disabled={restarting}
                   title="Restart daemon"
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-gray-100 hover:bg-gray-50 text-gray-700 hover:text-amber-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-theme-border/50 hover:bg-theme-border text-theme-text hover:text-amber-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <RotateCw size={14} className={restarting ? "animate-spin" : ""} />
                   Restart
@@ -176,7 +183,7 @@ export default function DashboardPage() {
                 <button
                   onClick={handleStop}
                   title="Stop daemon"
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-gray-100 hover:bg-gray-50 text-gray-700 hover:text-red-500 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-theme-border/50 hover:bg-theme-border text-theme-text hover:text-red-400 transition-colors"
                 >
                   <PowerOff size={14} />
                   Stop
@@ -196,8 +203,9 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* Activity Log */}
-      <div className="mb-6">
+      {/* Visualizer & Activity Log */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-6 mb-6">
+        <SwarmVisualizer />
         <ActivityLog />
       </div>
 
@@ -207,7 +215,7 @@ export default function DashboardPage() {
           icon={Activity}
           label="Status"
           value={connected ? "Online" : "Offline"}
-          color={connected ? "text-green-600" : "text-red-500"}
+          color={connected ? "text-green-500" : "text-red-500"}
         />
         <StatCard
           icon={Users}
@@ -230,8 +238,8 @@ export default function DashboardPage() {
 
       {/* Capability Badges */}
       {caps && (
-        <div className="bg-white rounded-xl p-4 mb-6">
-          <h2 className="text-lg font-semibold mb-3">Capabilities</h2>
+        <div className="glass-panel rounded-xl p-4 mb-6">
+          <h2 className="text-lg font-semibold text-theme-text mb-3">Capabilities</h2>
           <div className="flex gap-3">
             {[
               { key: "client", label: "Client", icon: MonitorSmartphone },
@@ -242,11 +250,10 @@ export default function DashboardPage() {
               return (
                 <div
                   key={key}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm ${
-                    enabled
-                      ? "bg-craftec-600/20 text-craftec-400 border border-craftec-600/30"
-                      : "bg-gray-100 text-gray-500 border border-gray-200"
-                  }`}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm ${enabled
+                    ? "bg-craftec-500/20 text-craftec-400 border border-craftec-500/30 shadow-[0_0_10px_rgba(92,124,250,0.2)]"
+                    : "bg-theme-border/30 text-theme-muted border border-theme-border"
+                    }`}
                 >
                   <Icon size={14} />
                   {label}
@@ -259,9 +266,9 @@ export default function DashboardPage() {
 
       {/* Node DID */}
       {did && (
-        <div className="bg-white rounded-xl p-4 mb-6">
-          <h2 className="text-lg font-semibold mb-2">Node DID</h2>
-          <p className="text-sm text-gray-400 font-mono break-all">{did}</p>
+        <div className="glass-panel rounded-xl p-4 mb-6">
+          <h2 className="text-lg font-semibold text-theme-text mb-2">Node DID</h2>
+          <p className="text-sm text-theme-muted/70 font-mono break-all">{did}</p>
         </div>
       )}
     </div>

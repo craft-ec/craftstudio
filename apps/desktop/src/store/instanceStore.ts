@@ -220,7 +220,7 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
           if (s) {
             logActivity(id, `Node has ${s.content_count} content items, ${s.piece_count} pieces (${formatBytes(s.stored_bytes)})`, "info", "system");
           }
-        }).catch(() => {});
+        }).catch(() => { });
         client.listPeers().then((peers) => {
           if (peers) {
             const count = Object.keys(peers).length;
@@ -231,7 +231,7 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
               logActivity(id, "No peers found yet — DHT discovery in progress", "warn", "announcement");
             }
           }
-        }).catch(() => {});
+        }).catch(() => { });
       } else {
         logActivity(id, "Disconnected from daemon", "error", "system");
       }
@@ -276,11 +276,11 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
         category = "gossip";
       }
       // User-initiated actions
-      else if (["content_published", "content_distributed", "access_granted", "access_revoked", "pool_funded", "removal_published", "distribution_progress", "channel_opened", "channel_closed"].includes(method)) {
+      else if (["content_published", "content_distributed", "access_granted", "access_revoked", "pool_funded", "removal_published", "distribution_progress", "channel_opened", "channel_closed", "scaling_push"].includes(method)) {
         category = "action";
       }
       // Maintenance / system
-      else if (["maintenance_cycle_started", "maintenance_cycle_completed", "discovery_status", "content_evicted", "content_retired", "disk_space_warning", "gc_completed", "storage_pressure", "aggregation_complete"].includes(method)) {
+      else if (["maintenance_cycle_started", "maintenance_cycle_completed", "discovery_status", "content_evicted", "content_retired", "disk_space_warning", "gc_completed", "storage_pressure", "aggregation_complete", "repair_started", "repair_completed"].includes(method)) {
         category = "system";
       }
 
@@ -377,6 +377,16 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
             msg = `DHT error for ${short(p.content_id)}: ${errMsg}${next}`;
             level = "error";
           }
+          break;
+        }
+
+        // Scaling
+        case "scaling_push": {
+          const pushed = Number(p.pieces_pushed ?? 0);
+          const np = Number(p.new_providers ?? 0);
+          msg = `⚡ Scaled ${short(p.content_id)}: pushed ${pushed} piece${pushed !== 1 ? "s" : ""} to ${np} new provider${np !== 1 ? "s" : ""}`;
+          level = "success";
+          category = "action";
           break;
         }
 
@@ -518,6 +528,25 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
           level = "info";
           category = "action";
           break;
+
+        // Repair
+        case "repair_started": {
+          const strat = String(p.strategy ?? "erasure");
+          msg = `🔧 Repairing ${short(p.content_id)} seg ${p.segment ?? 0} (${strat})`;
+          level = "info";
+          category = "system";
+          break;
+        }
+        case "repair_completed": {
+          const gen = Number(p.pieces_generated ?? 0);
+          const ok = Boolean(p.success);
+          msg = ok
+            ? `✅ Repair done ${short(p.content_id)} seg ${p.segment ?? 0} — ${gen} piece${gen !== 1 ? "s" : ""} generated`
+            : `❌ Repair failed ${short(p.content_id)} seg ${p.segment ?? 0} — no pieces generated`;
+          level = ok ? "success" : "error";
+          category = "system";
+          break;
+        }
 
         // Aggregation
         case "aggregation_complete":

@@ -9,9 +9,9 @@ const levelIcon: Record<ActivityEvent["level"], typeof Info> = {
 };
 
 const levelColor: Record<ActivityEvent["level"], string> = {
-  info: "text-gray-400",
-  success: "text-green-600",
-  warn: "text-amber-500",
+  info: "text-theme-muted/70",
+  success: "text-green-500",
+  warn: "text-amber-400",
   error: "text-red-500",
 };
 
@@ -29,16 +29,16 @@ export default function ActivityLog() {
   if (log.length === 0) return null;
 
   return (
-    <div className="bg-white rounded-xl p-4">
-      <h2 className="text-sm font-semibold text-gray-700 mb-3">Activity</h2>
+    <div className="glass-panel rounded-xl p-4">
+      <h2 className="text-sm font-semibold text-theme-text mb-3">Activity</h2>
       <div className="space-y-1.5 max-h-48 overflow-y-auto">
         {[...log].reverse().map((event, i) => {
           const Icon = levelIcon[event.level];
           return (
             <div key={i} className="flex items-start gap-2 text-xs">
               <Icon size={12} className={`${levelColor[event.level]} mt-0.5 shrink-0`} />
-              <span className="text-gray-500 shrink-0">{formatTime(event.time)}</span>
-              <span className={`${event.level === "error" ? "text-red-600" : "text-gray-700"}`}>
+              <span className="text-theme-muted shrink-0">{formatTime(event.time)}</span>
+              <span className={`${event.level === "error" ? "text-red-400" : "text-theme-text"}`}>
                 {event.message}
               </span>
             </div>

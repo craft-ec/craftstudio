@@ -34,23 +34,23 @@ export default function NetworkHealth() {
   return (
     <div className="mb-6">
       {/* Health ratio bar */}
-      <div className="bg-white rounded-xl p-4 mb-4">
+      <div className="glass-panel rounded-xl p-4 mb-4">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium flex items-center gap-2">
-            <Activity size={16} className="text-craftec-500" /> Network Health
+          <span className="text-sm font-medium flex items-center gap-2 text-theme-text">
+            <Activity size={16} className="text-craftec-400" /> Network Health
           </span>
-          <span className="text-sm font-semibold">{(ratio * 100).toFixed(1)}%</span>
+          <span className="text-sm font-semibold text-theme-text">{(ratio * 100).toFixed(1)}%</span>
         </div>
-        <div className="w-full bg-gray-100 rounded-full h-3">
+        <div className="w-full bg-theme-border rounded-full h-3">
           <div
-            className={`h-3 rounded-full transition-all ${healthColor(ratio)}`}
+            className={`h-3 rounded-full transition-all ${healthColor(ratio)} shadow-[0_0_10px_currentColor]`}
             style={{ width: `${Math.min(100, ratio * 100)}%` }}
           />
         </div>
-        <div className="flex items-center gap-4 mt-2 text-xs text-gray-400">
-          <span className="text-green-600">{data.healthy_content_count} healthy</span>
+        <div className="flex items-center gap-4 mt-2 text-xs text-theme-muted">
+          <span className="text-green-500">{data.healthy_content_count} healthy</span>
           {data.degraded_content_count > 0 && (
-            <span className="text-red-500">{data.degraded_content_count} degraded</span>
+            <span className="text-red-400">{data.degraded_content_count} degraded</span>
           )}
         </div>
       </div>

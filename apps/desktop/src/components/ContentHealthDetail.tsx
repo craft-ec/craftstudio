@@ -216,6 +216,12 @@ export default function ContentHealthDetail({ cid }: Props) {
         <span>Total pieces: <span className="font-semibold">{scanned ? (data.network_total_pieces ?? '—') : '—'}</span></span>
         <span className="flex items-center gap-1"><HardDrive size={10} className="text-gray-400" />{formatBytes(data.local_disk_usage)}</span>
         <span>{data.has_demand ? '🔥 Hot' : '— No demand'}</span>
+        {(() => {
+          const regions = [...new Set((data.providers ?? []).map(p => p.region).filter(Boolean))];
+          return regions.length > 0 ? (
+            <span title={regions.join(', ')}>🌐 <span className="font-semibold">{regions.length}</span> region{regions.length !== 1 ? 's' : ''}</span>
+          ) : null;
+        })()}
         <span>Target: <span className="font-semibold">{data.tier_min_ratio}x</span></span>
       </div>
 
@@ -227,6 +233,7 @@ export default function ContentHealthDetail({ cid }: Props) {
             <th className="text-left py-0.5 px-2">Local Pieces</th>
             <th className="text-left py-0.5 px-2">Network Pieces</th>
             <th className="text-left py-0.5 px-2">k</th>
+            <th className="text-left py-0.5 px-2" title="True rank: linearly independent pieces (GF(256)). Rank ≥ k means reconstructable.">Rank</th>
             <th className="text-left py-0.5 px-2 w-32">Coverage</th>
             <th className="text-left py-0.5 px-2">Status</th>
           </tr>
@@ -248,6 +255,13 @@ export default function ContentHealthDetail({ cid }: Props) {
                   ) : <span className="text-gray-400">—</span>}
                 </td>
                 <td className="py-0.5 px-2">{segK}</td>
+                <td className="py-0.5 px-2" title={seg.rank != null ? `${seg.rank} / ${segK} linearly independent pieces` : undefined}>
+                  {seg.rank != null ? (() => {
+                    const rankRatio = segK > 0 ? seg.rank / segK : 0;
+                    const rankColor = rankRatio >= 1 ? 'text-green-600' : rankRatio >= 0.5 ? 'text-amber-500' : 'text-red-500';
+                    return <span className={`font-mono ${rankColor}`}>{seg.rank}/{segK}</span>;
+                  })() : <span className="text-gray-400">—</span>}
+                </td>
                 <td className="py-0.5 px-2">
                   {scanned ? (
                     <div className="flex items-center gap-1">

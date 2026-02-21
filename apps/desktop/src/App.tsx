@@ -49,16 +49,16 @@ function App() {
 
   if (!configLoaded) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-50 text-gray-400">
+      <div className="flex h-screen items-center justify-center bg-theme-bg text-theme-muted">
         Loading...
       </div>
     );
   }
 
-  // No instances → show empty state
-  if (instances.length === 0 || activeId === null) {
+  // Temporarily bypass EmptyState for UI evaluation
+  if (false && (instances.length === 0 || activeId === null)) {
     return (
-      <div className="flex flex-col h-screen bg-gray-50 text-gray-900">
+      <div className="flex flex-col h-screen bg-theme-bg text-theme-text">
         <InstanceTabBar onAddInstance={() => setShowAddModal(true)} />
         <EmptyState />
         <AddInstanceModal open={showAddModal} onClose={() => setShowAddModal(false)} />
@@ -82,7 +82,7 @@ function App() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50 text-gray-900">
+    <div className="flex flex-col h-screen bg-theme-bg text-theme-text">
       <InstanceTabBar onAddInstance={() => setShowAddModal(true)} />
       <div key={activeId} className="flex flex-1 overflow-hidden">
         <Sidebar activePage={page} onNavigate={setPage} />

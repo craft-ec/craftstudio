@@ -23,6 +23,9 @@ export interface SegmentHealth {
   k?: number;
   needs_repair?: boolean;
   needs_degradation?: boolean;
+  // True rank: number of linearly independent pieces (GF(256) Gaussian elimination).
+  // rank/k ≥ 1.0 means the segment is reconstructable. rank < k means data loss risk.
+  rank?: number;
 }
 
 export interface ProviderInfo {

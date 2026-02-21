@@ -47,7 +47,7 @@ function redundancyLevel(healthRatio: number, providerCount: number): { level: s
       description: "Single point of failure"
     };
   }
-  
+
   if (healthRatio >= 0.9 && providerCount >= 5) {
     return {
       level: "High",
@@ -55,15 +55,15 @@ function redundancyLevel(healthRatio: number, providerCount: number): { level: s
       description: `Excellent redundancy across ${providerCount} nodes`
     };
   }
-  
+
   if (healthRatio >= 0.7 && providerCount >= 3) {
     return {
       level: "Good",
-      color: "text-amber-500", 
+      color: "text-amber-500",
       description: `Good redundancy across ${providerCount} nodes`
     };
   }
-  
+
   return {
     level: "Low",
     color: "text-orange-500",
@@ -94,15 +94,20 @@ interface ContentRowProps {
 function ContentRow({ item, isExpanded, onToggleExpand, onShowAccess, onDelete, isPublished }: ContentRowProps) {
   const cid = item.content_id;
   const redundancy = redundancyLevel(item.health_ratio, item.provider_count);
-  
+  // Stored content rows don't expand — health detail requires the manifest,
+  // which only exists on the publisher node, not storage-only peers.
+  const canExpand = isPublished;
+
   return (
     <React.Fragment>
       <tr
-        className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors"
-        onClick={() => onToggleExpand(cid)}
+        className={`border-b border-gray-100 transition-colors ${canExpand ? "hover:bg-gray-50 cursor-pointer" : ""}`}
+        onClick={() => canExpand && onToggleExpand(cid)}
       >
         <td className="py-2.5 px-3 w-6">
-          {isExpanded ? <ChevronDown size={14} className="text-gray-400" /> : <ChevronRight size={14} className="text-gray-400" />}
+          {canExpand ? (
+            isExpanded ? <ChevronDown size={14} className="text-gray-400" /> : <ChevronRight size={14} className="text-gray-400" />
+          ) : <span className="w-3.5 inline-block" />}
         </td>
         <td className="py-2.5 px-3">
           <div className="flex flex-col">
@@ -169,12 +174,132 @@ function ContentRow({ item, isExpanded, onToggleExpand, onShowAccess, onDelete, 
           </div>
         </td>
       </tr>
-      {isExpanded && (
+      {canExpand && isExpanded && (
         <tr><td colSpan={9} className="p-0">
           <ContentHealthDetail cid={cid} />
         </td></tr>
       )}
     </React.Fragment>
+  );
+}
+
+// ── Published Item Card ──────────────────────────────────
+// Separate from ContentRow — published content is a temp holding state
+// during distribution. It should show distribution progress, not storage health.
+
+interface PublishedItemCardProps {
+  item: ContentItem;
+  onShowAccess: (cid: string) => void;
+  onDelete: (cid: string) => void;
+}
+
+function PublishedItemCard({ item, onShowAccess, onDelete }: PublishedItemCardProps) {
+  const cid = item.content_id;
+  const [copied, setCopied] = React.useState(false);
+
+  const copyToClipboard = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(cid).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
+
+  // Distribution status derived from provider_count
+  const isFullyDistributed = item.provider_count > 3;
+  const isDistributing = item.provider_count > 1 && item.provider_count <= 3;
+  const isLocalOnly = item.provider_count <= 1;
+
+  const statusBadge = isFullyDistributed
+    ? { label: "Distributed", cls: "bg-green-100 text-green-700" }
+    : isDistributing
+      ? { label: "Distributing…", cls: "bg-amber-100 text-amber-700" }
+      : { label: "Local only", cls: "bg-gray-100 text-gray-600" };
+
+  // Progress bar: treat 5 nodes as "full" distribution target
+  const TARGET_NODES = 5;
+  const progressPct = Math.min(100, (item.provider_count / TARGET_NODES) * 100);
+  const progressColor = isFullyDistributed
+    ? "bg-green-500"
+    : isDistributing
+      ? "bg-amber-400"
+      : "bg-gray-300";
+
+  return (
+    <div className="flex items-start gap-4 p-4 border border-gray-100 rounded-lg hover:border-gray-200 hover:bg-gray-50 transition-colors">
+      {/* Left icon */}
+      <div className="mt-0.5 flex-shrink-0">
+        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${isFullyDistributed ? "bg-green-50" : isDistributing ? "bg-amber-50" : "bg-gray-50"
+          }`}>
+          <Share2 size={18} className={isFullyDistributed ? "text-green-500" : isDistributing ? "text-amber-500" : "text-gray-400"} />
+        </div>
+      </div>
+
+      {/* Main info */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-0.5">
+          <span className="font-medium text-gray-900 text-sm truncate">{item.name || shortenCid(cid)}</span>
+          <span className={`text-[11px] px-1.5 py-0.5 rounded font-medium ${statusBadge.cls}`}>{statusBadge.label}</span>
+          {item.encrypted && (
+            <span className="flex items-center gap-0.5 text-[11px] text-craftec-500">
+              <Lock size={10} /> Encrypted
+            </span>
+          )}
+        </div>
+
+        {/* CID row with copy */}
+        <div className="flex items-center gap-1.5 mb-2">
+          <span className="text-xs text-gray-400 font-mono">{shortenCid(cid)}</span>
+          <button
+            onClick={copyToClipboard}
+            className="text-[11px] text-gray-400 hover:text-gray-600 transition-colors"
+            title="Copy full CID"
+          >
+            {copied ? "✓ Copied" : "Copy CID"}
+          </button>
+        </div>
+
+        {/* Distribution progress bar */}
+        <div className="mb-1">
+          <div className="flex justify-between items-center mb-1">
+            <span className="text-[11px] text-gray-400">
+              Pieces distributed to {item.provider_count} {item.provider_count === 1 ? "node" : "nodes"}
+            </span>
+            <span className="text-[11px] text-gray-400">{formatBytes(item.total_size)}</span>
+          </div>
+          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all ${progressColor}`}
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+        </div>
+
+        {isLocalOnly && (
+          <p className="text-[11px] text-gray-400 mt-1">
+            No storage peers received pieces yet — may still be distributing or no peers connected.
+          </p>
+        )}
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center gap-2 flex-shrink-0">
+        {item.encrypted && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onShowAccess(cid); }}
+            className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100 transition-colors"
+          >
+            Access
+          </button>
+        )}
+        <button
+          onClick={(e) => { e.stopPropagation(); onDelete(cid); }}
+          className="text-xs text-red-400 hover:text-red-600 px-2 py-1 rounded hover:bg-red-50 transition-colors"
+        >
+          Delete
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -264,7 +389,7 @@ export default function DataDashboard() {
           daemon.networkHealth(),
           daemon.nodeStats()
         ]);
-        
+
         if (healthData.status === 'fulfilled') {
           setNetHealth(healthData.value);
         }
@@ -275,7 +400,7 @@ export default function DataDashboard() {
         console.error('Failed to load network data:', err);
       }
     };
-    
+
     loadNetworkData();
     const interval = setInterval(loadNetworkData, 30000); // Refresh every 30s
     return () => clearInterval(interval);
@@ -302,7 +427,7 @@ export default function DataDashboard() {
 
   const publishedContent = content.filter((c) => c.role === "publisher" || c.role === "unknown");
   const storedContent = content.filter((c) => c.role === "storage_provider");
-  
+
   const totalSize = content.reduce((acc, c) => acc + c.total_size, 0);
   const avgHealth = content.length > 0
     ? content.reduce((acc, c) => acc + c.health_ratio, 0) / content.length
@@ -407,28 +532,28 @@ export default function DataDashboard() {
 
       {/* ── Node Stats (this node only) ─────────────────── */}
       <div className="grid grid-cols-4 gap-4 mb-6">
-        <StatCard 
-          icon={Share2} 
-          label="Published" 
-          value={String(publishedContent.length)} 
+        <StatCard
+          icon={Share2}
+          label="Published"
+          value={String(publishedContent.length)}
           sub={`${distributionStats.fullyDistributed} distributed`}
           color={distributionStats.localOnly > distributionStats.fullyDistributed ? "text-amber-500" : "text-green-600"}
         />
-        <StatCard 
-          icon={HardDrive} 
-          label="Storing" 
-          value={String(storedContent.length)} 
+        <StatCard
+          icon={HardDrive}
+          label="Storing"
+          value={String(storedContent.length)}
           sub={`${formatBytes(nodeStats?.total_disk_usage || 0)} / ${formatBytes(nodeStats?.max_storage_bytes || 0)}`}
         />
-        <StatCard 
-          icon={Layers} 
-          label="Local Content" 
+        <StatCard
+          icon={Layers}
+          label="Local Content"
           value={String(content.length)}
           sub={formatBytes(totalSize)}
         />
-        <StatCard 
-          icon={Activity} 
-          label="Node Status" 
+        <StatCard
+          icon={Activity}
+          label="Node Status"
           value={connected ? "Online" : "Offline"}
           color={connected ? "text-green-600" : "text-red-500"}
         />
@@ -444,57 +569,38 @@ export default function DataDashboard() {
           {loading && <span className="text-xs text-gray-500 animate-pulse">Loading…</span>}
         </div>
         <p className="text-xs text-gray-400 mb-3">
-          Content you published — distributed across the network after publishing. Publisher node keeps no local pieces.
+          Files you've published — the publisher node temporarily holds pieces during distribution, then hands them off to storage nodes. This list tracks that outbound distribution progress.
         </p>
 
-        {/* Distribution Status */}
+        {/* Distribution summary bar */}
         {publishedContent.length > 0 && (
-          <div className="flex items-center gap-4 mb-4 p-3 bg-gray-50 rounded-lg">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-green-500"></div>
-              <span className="text-sm text-gray-600">{distributionStats.fullyDistributed} distributed</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-amber-500"></div>
-              <span className="text-sm text-gray-600">{distributionStats.distributing} distributing</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-red-500"></div>
-              <span className="text-sm text-gray-600">{distributionStats.localOnly} local only</span>
-            </div>
+          <div className="flex items-center gap-6 mb-4 px-3 py-2 bg-gray-50 rounded-lg text-xs text-gray-600">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-green-500 inline-block" />
+              {distributionStats.fullyDistributed} distributed
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block" />
+              {distributionStats.distributing} distributing
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-gray-300 inline-block" />
+              {distributionStats.localOnly} local only
+            </span>
+            <span className="ml-auto text-gray-400">Publisher node keeps no local pieces after distribution</span>
           </div>
         )}
 
         {publishedContent.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-2 px-3 text-gray-400 font-medium text-xs uppercase tracking-wider w-6"></th>
-                  <th className="text-left py-2 px-3 text-gray-400 font-medium text-xs uppercase tracking-wider">Name</th>
-                  <th className="text-left py-2 px-3 text-gray-400 font-medium text-xs uppercase tracking-wider">Size</th>
-                  <th className="text-left py-2 px-3 text-gray-400 font-medium text-xs uppercase tracking-wider">Health & Redundancy</th>
-                  <th className="text-left py-2 px-3 text-gray-400 font-medium text-xs uppercase tracking-wider">Segments</th>
-                  <th className="text-left py-2 px-3 text-gray-400 font-medium text-xs uppercase tracking-wider">Distribution Status</th>
-                  <th className="text-left py-2 px-3 text-gray-400 font-medium text-xs uppercase tracking-wider w-8"></th>
-                  <th className="text-left py-2 px-3 text-gray-400 font-medium text-xs uppercase tracking-wider w-8"></th>
-                  <th className="text-left py-2 px-3 text-gray-400 font-medium text-xs uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {publishedContent.map((item: ContentItem) => (
-                  <ContentRow
-                    key={item.content_id}
-                    item={item}
-                    isExpanded={expandedCid === item.content_id}
-                    onToggleExpand={toggleExpandCid}
-                    onShowAccess={setShowAccess}
-                    onDelete={handleDeleteLocal}
-                    isPublished={true}
-                  />
-                ))}
-              </tbody>
-            </table>
+          <div className="flex flex-col gap-2">
+            {publishedContent.map((item: ContentItem) => (
+              <PublishedItemCard
+                key={item.content_id}
+                item={item}
+                onShowAccess={setShowAccess}
+                onDelete={handleDeleteLocal}
+              />
+            ))}
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-12 text-gray-500">
@@ -575,27 +681,27 @@ export default function DataDashboard() {
           <div className="mt-4">
             {/* Network-level stats */}
             <div className="grid grid-cols-4 gap-4 mb-4">
-              <StatCard 
-                icon={Activity} 
-                label="Network Health" 
-                value={netHealth ? `${(netHealth.average_health_ratio * 100).toFixed(1)}%` : `${(avgHealth * 100).toFixed(0)}%`} 
-                color={avgHealth >= 0.8 ? "text-green-600" : avgHealth >= 0.5 ? "text-amber-500" : "text-red-500"} 
+              <StatCard
+                icon={Activity}
+                label="Network Health"
+                value={netHealth ? `${(netHealth.average_health_ratio * 100).toFixed(1)}%` : `${(avgHealth * 100).toFixed(0)}%`}
+                color={avgHealth >= 0.8 ? "text-green-600" : avgHealth >= 0.5 ? "text-amber-500" : "text-red-500"}
               />
-              <StatCard 
-                icon={Users} 
-                label="Storage Nodes" 
+              <StatCard
+                icon={Users}
+                label="Storage Nodes"
                 value={String(netHealth?.storage_node_count ?? 0)}
                 sub={`${netHealth?.total_providers_unique ?? 0} unique providers`}
               />
-              <StatCard 
-                icon={HardDrive} 
-                label="Network Storage" 
+              <StatCard
+                icon={HardDrive}
+                label="Network Storage"
                 value={formatBytes(netHealth?.total_network_storage_used ?? 0)}
                 sub={`of ${formatBytes(netHealth?.total_network_storage_committed ?? 0)}`}
               />
-              <StatCard 
-                icon={Layers} 
-                label="Network Content" 
+              <StatCard
+                icon={Layers}
+                label="Network Content"
                 value={String(netHealth?.total_content_count ?? content.length)}
                 sub={`${netHealth?.healthy_content_count ?? 0} healthy, ${netHealth?.degraded_content_count ?? 0} degraded`}
               />
@@ -685,7 +791,7 @@ export default function DataDashboard() {
             <div className="flex gap-2">
               <input type="text" value={filePath} onChange={(e) => setFilePath(e.target.value)} placeholder="/path/to/file.csv"
                 className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-craftec-500" />
-              <button type="button" onClick={async () => { try { const s = await invoke<string | null>("pick_file"); if (s) setFilePath(s); } catch {} }}
+              <button type="button" onClick={async () => { try { const s = await invoke<string | null>("pick_file"); if (s) setFilePath(s); } catch { } }}
                 className="px-3 py-2 bg-gray-200 hover:bg-gray-50 text-gray-700 rounded-lg transition-colors" title="Browse files">
                 <FolderOpen size={16} />
               </button>
