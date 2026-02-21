@@ -1,8 +1,9 @@
 /**
- * Singleton JSON-RPC 2.0 client over WebSocket for CraftOBJ daemon.
+ * JSON-RPC 2.0 client over WebSocket for CraftStudio daemon.
  *
  * Auto-reconnects, tracks request IDs, supports timeouts.
  * All pages go through this — never instantiate WebSocket directly.
+ * Supports namespaced methods: data.*, tunnel.*, settlement.*, etc.
  *
  * URL is read from config store; call `daemon.setUrl()` to change it.
  */
@@ -383,13 +384,13 @@ class DaemonClient {
   // Data
   publish(path: string, encrypted = false) {
     return this.call<{ cid: string; size: number; segments: number; key?: string }>(
-      "publish",
+      "data.publish",
       { path, encrypted }
     );
   }
 
   fetch(cid: string, output?: string, key?: string) {
-    return this.call<{ path: string }>("fetch", { cid, ...(output && { output }), ...(key && { key }) });
+    return this.call<{ path: string }>("data.fetch", { cid, ...(output && { output }), ...(key && { key }) });
   }
 
   deleteLocalContent(cid: string) {
@@ -397,11 +398,11 @@ class DaemonClient {
   }
 
   listContent() {
-    return this.call<Array<{ content_id: string; name?: string; total_size: number; segment_count: number; pinned: boolean }>>("list");
+    return this.call<Array<{ content_id: string; name?: string; total_size: number; segment_count: number; pinned: boolean }>>("data.list");
   }
 
   status() {
-    return this.call<{ stored_bytes: number; content_count: number; piece_count: number; pinned_count: number }>("status");
+    return this.call<{ stored_bytes: number; content_count: number; piece_count: number; pinned_count: number }>("data.status");
   }
 
   // Access
@@ -526,7 +527,7 @@ class DaemonClient {
 
   // Extend content with new RLNC pieces
   extend(cid: string) {
-    return this.call<{ cid: string; pieces_generated: number }>("extend", { cid });
+    return this.call<{ cid: string; pieces_generated: number }>("data.extend", { cid });
   }
 
   // Receipts
