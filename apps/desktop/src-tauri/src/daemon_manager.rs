@@ -1,14 +1,18 @@
+use craftec_identity::Identity;
+use craftec_ipc::server::IpcHandler;
 use craftec_keystore;
 use craftec_network::NetworkConfig;
-use craftobj_daemon::service;
+use craftnet_daemon::DaemonService as CraftNetService;
 use libp2p::identity::Keypair;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use tokio::task::{AbortHandle, JoinHandle};
-use tracing::{info, warn, Instrument};
+use tracing::{info, warn, error, Instrument};
 use tracing_subscriber::Layer;
+
+use crate::craftnet_adapter::CraftNetAdapter;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DaemonConfig {
@@ -29,6 +33,7 @@ pub struct DaemonInstance {
     pub socket_path: String,
     pub listen_addr: String,
     pub primary: bool,
+    pub did: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -40,6 +45,7 @@ pub struct LogLine {
 
 struct ManagedDaemon {
     info: DaemonInstance,
+    identity: Identity,
     _handle: JoinHandle<()>,
     abort: AbortHandle,
 }
@@ -242,7 +248,8 @@ impl DaemonManager {
                 .collect()
         };
 
-        // Write default config if needed
+        // Write default config if not already present, using DaemonConfig struct
+        // so all fields (including newly added timing fields) are always included.
         {
             let config_path = std::path::Path::new(&data_dir).join("config.json");
             std::fs::create_dir_all(&data_dir).ok();
@@ -252,42 +259,26 @@ impl DaemonManager {
                     .as_ref()
                     .cloned()
                     .unwrap_or_else(|| vec!["client".to_string()]);
-                let daemon_cfg = serde_json::json!({
-                    "schema_version": 2,
-                    "capabilities": caps,
-                    "listen_port": listen_port,
-                    "ws_port": ws_port,
-                    "socket_path": &socket_path,
-                    "storage_path": format!("{}/storage", &data_dir),
-                    "keypair_path": format!("{}/identity.json", &data_dir),
-                    "capability_announce_interval_secs": 300,
-                    "reannounce_interval_secs": 600,
-                    "reannounce_threshold_secs": 1200,
-                    "challenger_interval_secs": null,
-                    "max_storage_bytes": 10_737_418_240_u64,
-                    "boot_peers": &boot_peers
-                });
-                if let Err(e) = std::fs::write(
-                    &config_path,
-                    serde_json::to_string_pretty(&daemon_cfg).unwrap_or_default(),
-                ) {
+                let mut daemon_cfg = craftobj_daemon::config::DaemonConfig::default();
+                daemon_cfg.capabilities = caps;
+                daemon_cfg.listen_port = listen_port;
+                daemon_cfg.ws_port = ws_port;
+                daemon_cfg.socket_path = Some(socket_path.clone());
+                daemon_cfg.max_storage_bytes = 10_737_418_240;
+                daemon_cfg.boot_peers = boot_peers.clone();
+                if let Err(e) = daemon_cfg.save_to(&config_path) {
                     eprintln!(
                         "Warning: failed to write initial daemon config to {:?}: {}",
                         config_path, e
                     );
                 }
             } else if !boot_peers.is_empty() {
-                // Config exists — inject boot_peers into it
-                if let Ok(raw) = std::fs::read_to_string(&config_path) {
-                    if let Ok(mut json) = serde_json::from_str::<serde_json::Value>(&raw) {
-                        json["boot_peers"] = serde_json::json!(&boot_peers);
-                        if let Err(e) = std::fs::write(
-                            &config_path,
-                            serde_json::to_string_pretty(&json).unwrap_or_default(),
-                        ) {
-                            eprintln!("Warning: failed to update boot_peers in {:?}: {}", config_path, e);
-                        }
-                    }
+                // Config exists — load, update boot_peers, save back.
+                // Use DaemonConfig round-trip so no other fields are lost.
+                let mut existing = craftobj_daemon::config::DaemonConfig::load_from(&config_path);
+                existing.boot_peers = boot_peers.clone();
+                if let Err(e) = existing.save_to(&config_path) {
+                    eprintln!("Warning: failed to update boot_peers in {:?}: {}", config_path, e);
                 }
             }
         }
@@ -318,6 +309,9 @@ impl DaemonManager {
 
         let mut network_config = NetworkConfig {
             protocol_prefix: "craftobj".to_string(),
+            // Enable dual-Kademlia: CraftOBJ's swarm also hosts /craftnet/kad/1.0.0.
+            // Peers discovered via mDNS are added to both DHTs automatically.
+            secondary_protocol_prefix: Some("craftnet".to_string()),
             ..Default::default()
         };
 
@@ -355,41 +349,130 @@ impl DaemonManager {
             logs.insert(instance_id, Vec::new());
         }
 
-        let socket_path_clone = socket_path.clone();
         let logs_clone = Arc::clone(&self.logs);
+        let (cmd_tx, cmd_rx) = tokio::sync::mpsc::channel(1024);
+        let (evt_tx, evt_rx) = tokio::sync::mpsc::channel(1024);
+        let (stream_tx, stream_rx) = tokio::sync::oneshot::channel();
 
+        // Load daemon config from disk (or defaults) before init
+        let daemon_config = if let Some(ref path) = config_path_opt {
+            let cfg = craftobj_daemon::config::DaemonConfig::load_from(path);
+            cfg
+        } else {
+            craftobj_daemon::config::DaemonConfig::load(&data_dir_path)
+        };
+
+        // ── Create CraftNet service for this instance ──
+        let craftnet_secret = node_signing_key.secret_key_bytes();
+        let craftnet_service = CraftNetService::new_with_data_dir(
+            &craftnet_secret,
+            &PathBuf::from(&data_dir),
+        )
+        .map_err(|e| format!("Failed to create CraftNet service: {}", e))?;
+
+        let craftnet_service = Arc::new(craftnet_service);
+        let craftnet_for_adapter = Arc::clone(&craftnet_service);
+
+        let socket_path_for_ipc = socket_path.clone();
         let span = tracing::info_span!("daemon", daemon_instance_id = instance_id);
         let handle = self.runtime.spawn(async move {
-            let result = service::run_daemon_with_config(
+            let socket_path = socket_path_for_ipc;
+            // 1. Init CraftOBJ daemon (handler + swarm, no IPC)
+            let daemon_handle = match craftobj_daemon::init_daemon(
                 keypair,
                 data_dir_path,
-                socket_path_clone,
                 network_config,
-                ws_port,
-                config_path_opt,
+                daemon_config,
                 Some(dalek_key),
-            )
-            .await;
-
-            match result {
-                Ok(()) => {
-                    info!("Daemon instance {} exited cleanly", instance_id);
-                }
+                Some(cmd_rx),
+                Some(evt_tx),
+                Some(stream_tx),
+            ).await {
+                Ok(h) => h,
                 Err(e) => {
-                    warn!("Daemon instance {} exited with error: {}", instance_id, e);
+                    error!("Failed to init daemon: {}", e);
                     let mut logs = logs_clone.lock().unwrap();
                     if let Some(v) = logs.get_mut(&instance_id) {
                         v.push(LogLine {
                             pid: instance_id,
-                            line: format!("Daemon exited with error: {}", e),
+                            line: format!("Daemon init failed: {}", e),
                             is_stderr: true,
                         });
                     }
+                    return;
+                }
+            };
+
+            // 2. Build unified IPC server with namespace routing
+            let ipc = craftec_ipc::ServerBuilder::new(&socket_path)
+                .with_websocket(ws_port)
+                .with_api_key(daemon_handle.api_key.clone())
+                .namespace("data", daemon_handle.handler.clone())
+                .namespace("tunnel", Arc::new(CraftNetAdapter(craftnet_for_adapter.clone())) as Arc<dyn IpcHandler>)
+                .default_handler(daemon_handle.handler.clone()); // backward compat: unnamespaced methods go to CraftOBJ
+
+            // 3. Bridge DaemonEvent → String for the IPC event transport
+            let ipc_event_tx = ipc.event_sender();
+            let mut daemon_event_rx = daemon_handle.event_tx.subscribe();
+            tokio::spawn(async move {
+                loop {
+                    match daemon_event_rx.recv().await {
+                        Ok(event) => {
+                            let notification: String = event.into();
+                            let _ = ipc_event_tx.send(notification);
+                        }
+                        Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+                        Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                    }
+                }
+            });
+
+            // 4. Run everything concurrently
+            tokio::select! {
+                _ = daemon_handle.loops => {
+                    info!("Daemon instance {} loops ended", instance_id);
+                }
+                result = ipc.run() => {
+                    if let Err(e) = result {
+                        error!("IPC server error for instance {}: {}", instance_id, e);
+                    }
                 }
             }
+
+            info!("Daemon instance {} exited cleanly", instance_id);
         }.instrument(span));
 
         let abort = handle.abort_handle();
+
+        // Give CraftNet its swarm handles (once they become available) and auto-start
+        self.runtime.spawn(async move {
+            match stream_rx.await {
+                Ok((stream_control, incoming_streams_rx)) => {
+                    let handles = craftnet_daemon::SwarmHandles {
+                        cmd_tx,
+                        evt_rx,
+                        stream_control,
+                        incoming_streams_rx,
+                        local_peer_id: peer_id,
+                    };
+                    craftnet_service.set_swarm_handles(handles).await;
+                    // Auto-start CraftNet so it joins the network immediately
+                    if let Err(e) = craftnet_service.start().await {
+                        warn!("CraftNet auto-start failed: {}", e);
+                    }
+                }
+                Err(e) => warn!("Failed to receive CraftNet stream handles: {}", e),
+            }
+        });
+
+        // Create identity from the shared keypair
+        let identity = Identity::from_secret_bytes(&node_signing_key.secret_key_bytes());
+        let did_string = identity.did.to_string();
+
+        info!(
+            "Instance {} identity: {}",
+            instance_id, did_string
+        );
 
         let instance = DaemonInstance {
             pid: instance_id,
@@ -398,12 +481,14 @@ impl DaemonManager {
             socket_path,
             listen_addr,
             primary: is_primary,
+            did: did_string,
         };
 
         {
             let mut daemons = self.daemons.lock().unwrap();
             daemons.push(ManagedDaemon {
                 info: instance.clone(),
+                identity,
                 _handle: handle,
                 abort,
             });

@@ -1,5 +1,6 @@
 mod commands;
 mod config;
+mod craftnet_adapter;
 mod daemon_manager;
 
 use daemon_manager::{DaemonConfig, DaemonInstance, DaemonLogLayer, DaemonManager, LogLine, SharedLogs};
@@ -8,6 +9,8 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
+
+// ── CraftOBJ Daemon Commands ───────────────────────────────────
 
 #[tauri::command]
 fn start_craftobj_daemon(
@@ -45,7 +48,21 @@ pub fn run() {
     // Shared log storage for daemon instances
     let logs: SharedLogs = Arc::new(Mutex::new(HashMap::new()));
 
-    // Set up tracing with both console output and daemon log capture
+    // Set up log file in ~/Library/Logs/craftec/
+    let log_dir = dirs::home_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("/tmp"))
+        .join("Library/Logs/craftec");
+    let _ = std::fs::create_dir_all(&log_dir);
+    let log_path = log_dir.join("craftec.log");
+    eprintln!("[craftec] writing logs to {}", log_path.display());
+
+    let log_file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&log_path)
+        .ok();
+
+    // Set up tracing with console + file + daemon log capture
     let daemon_log_layer = DaemonLogLayer::new(Arc::clone(&logs));
     let fmt_layer = tracing_subscriber::fmt::layer()
         .with_target(true)
@@ -53,22 +70,28 @@ pub fn run() {
     let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
 
-    tracing_subscriber::registry()
+    let registry = tracing_subscriber::registry()
         .with(env_filter)
         .with(fmt_layer)
-        .with(daemon_log_layer)
-        .init();
+        .with(daemon_log_layer);
+
+    if let Some(file) = log_file {
+        let file_layer = tracing_subscriber::fmt::layer()
+            .with_ansi(false)
+            .with_writer(std::sync::Mutex::new(file));
+        registry.with(file_layer).init();
+    } else {
+        registry.init();
+    }
 
     // Get a handle to the tokio runtime (Tauri 2 runs on tokio)
     let runtime_handle = tokio::runtime::Handle::current();
-    let daemon_manager = Arc::new(DaemonManager::new(logs, runtime_handle));
+    let daemon_manager = Arc::new(DaemonManager::new(logs, runtime_handle.clone()));
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .manage(daemon_manager)
         .setup(|_app| {
-            // Auto-start removed: loadFromConfig in the frontend handles starting
-            // saved instances, and EmptyState handles first-time setup.
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -173,6 +196,9 @@ pub async fn run_headless() {
         ws_port,
         config_path_opt,
         Some(dalek_key),
+        None,
+        None,
+        None,
     )
     .await;
 

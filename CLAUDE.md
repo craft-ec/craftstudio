@@ -50,18 +50,28 @@ pnpm build && cd ../.. && cargo build
 
 ## Architecture
 - **Tauri shell**: Thin — window management, system tray, OS keychain, daemon lifecycle
-- **Daemon** (future): Separate process, all protocol logic, communicates via WebSocket (JSON-RPC 2.0)
+- **In-process daemons**: CraftOBJ + CraftNet run in-process, sharing one libp2p swarm
+- **Unified IPC**: `craftec_ipc::ServerBuilder` serves both Unix socket + WebSocket with namespace routing
 - **Frontend**: React SPA with Zustand state, TailwindCSS styling, Lucide icons
 
+### IPC Architecture
+Each daemon instance runs a single `ServerBuilder` with namespaced handlers:
+- `data.*` → CraftOBJ handler (data operations)
+- `tunnel.*` → CraftNet adapter (VPN operations)
+- Unnamespaced → CraftOBJ default handler (backward compat)
+
+Tunnel operations go through WebSocket (`daemon.call("tunnel.connect")`) — no Tauri commands.
+OS-level operations (file picker, config read/write, identity) remain as Tauri commands.
+
 ## Key Design Decisions
-- WebSocket to daemon for protocol operations, Tauri commands for OS-level operations
+- WebSocket to daemon for ALL protocol operations (data + tunnel), Tauri commands only for OS-level
 - Dark mode default, Craftec brand colors
-- Sidebar navigation: TunnelCraft, CraftOBJ, Identity, Node, Wallet, Settings
+- Sidebar navigation: CraftNet, CraftOBJ, Identity, Node, Wallet, Settings
 - See `docs/CRAFTSTUDIO_DESIGN.md` for full design doc
 
 ## Current State
-- All pages wired to CraftOBJ daemon via WebSocket JSON-RPC 2.0
-- Singleton `DaemonClient` at `src/services/daemon.ts` — auto-reconnect, typed methods
+- All pages wired to daemon via WebSocket JSON-RPC 2.0 (data and tunnel)
+- Multi-instance `DaemonClient` at `src/services/daemon.ts` — auto-reconnect, typed methods
 - `daemonStore` — reactive connection state used by StatusBar + DaemonOffline banner
 - `dataCraftStore` — publish/list/access all go through daemon IPC
 - `walletStore` — fundPool calls `settlement.fund_pool` via daemon
